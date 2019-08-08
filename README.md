@@ -5,7 +5,7 @@ make
 ```
 ## Usage
 ```
-sh run.sh
+./machine
 ```
 __Note__: not yet tested.
 
