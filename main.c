@@ -17,6 +17,13 @@ uint8_t test_prgr [] = {
     IS_JZ,   0x08, 0x00,
     IS_HALT};
 
+uint8_t echo_prgr [] =
+{
+    IS_READ,
+    IS_WRIT,
+    IS_JMP, 0x00, 0x00
+};
+
 int main ()
 {
     uint8_t i=0;
@@ -24,10 +31,10 @@ int main ()
     fd = fopen ("debug.out", "w");
     fprintf (fd, "Test program:\n");
     printf ("Machine IO (press Ctrl-C to exit):\n");
-    for (i=0; i<sizeof (test_prgr); i++)
-        fprintf (fd, "0x%02x ", test_prgr [i]);
+    for (i=0; i<sizeof (echo_prgr); i++)
+        fprintf (fd, "0x%02x ", echo_prgr [i]);
     fprintf (fd, "\nInit...\n");
-    machine_init (test_prgr, sizeof (test_prgr), fd);
+    machine_init (echo_prgr, sizeof (echo_prgr), fd);
     fprintf (fd, "Start:\n");
     machine_run (fd);
     fprintf (fd, "Done.\n");

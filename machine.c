@@ -21,6 +21,7 @@ struct regs
 struct state
 {
     int halt;
+    int jump;
     uint16_t instruction_size;
     uint8_t instruction_l;
     uint16_t instruction_h;
@@ -45,9 +46,10 @@ void print_state ()
         fprintf (fd, "Regs: ACCU: 0x%04x, IP: 0x%04x, SP: 0x%04x, ADDR: 0x%04x\n",
             machine_regs.accu, machine_regs.ip, machine_regs.sp,
             machine_regs.addr);
-        fprintf (fd, "State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d\n",
+        fprintf (fd, "State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d, JMP %d",
             machine_state.instruction_l, machine_state.instruction_h,
-            machine_state.halt, machine_state.instruction_size);
+            machine_state.halt, machine_state.instruction_size,
+            machine_state.jump);
         fprintf (fd, "Stack: ");
         for (i=0; i<0xf;i++)
             fprintf (fd, "%02x ", stack[i]);
@@ -65,6 +67,7 @@ void machine_init (uint8_t * progr, uint16_t size, FILE* _fd)
     machine_regs.sp = 0;
     machine_regs.addr = 0;
     machine_state.halt = 0;
+    machine_state.jump = 0;
     memcpy (code, progr, size);
     exit_flag = 0;
     print_state ();
@@ -98,12 +101,16 @@ void parse_instruction ()
         if (machine_state.instruction_l == IS_JMP)
         {
             machine_regs.ip = machine_state.instruction_h;
+            machine_state.jump = 1;
             return;
         }
         if (machine_state.instruction_l == IS_JZ)
         {
             if (machine_regs.accu == 0)
+            {
                 machine_regs.ip = machine_state.instruction_h;
+                machine_state.jump = 1;
+            }
             return;
         }
     }
@@ -159,10 +166,13 @@ void machine_run ()
         read_instruction ();
         parse_instruction ();
         if (!machine_state.halt)
-            if (machine_state.instruction_size == 3)
-                machine_regs.ip += 3;
+            if (!machine_state.jump)
+                if (machine_state.instruction_size == 3)
+                    machine_regs.ip += 3;
+                else
+                    machine_regs.ip += 1;
             else
-                machine_regs.ip += 1;
+                machine_state.jump = 0;
         else
             exit_flag = 1;
         sleep (1);
