@@ -8,6 +8,7 @@ int exit_flag = 0;
 uint8_t mem [0x10000];
 uint8_t stack [0x10000];
 uint8_t code [0x10000];
+FILE * fd;
 
 struct regs
 {
@@ -36,27 +37,29 @@ void determine_instruction_size ()
 void print_state ()
 {
     if (machine_state.halt)
-        printf ("Halt.\n");
+        fprintf (fd, "Halt.\n");
     else
     {
         uint16_t i = 0;
-        printf ("========================================================\n");
-        printf ("Regs: ACCU: 0x%04x, IP: 0x%04x, SP: 0x%04x, ADDR: 0x%04x\n",
+        fprintf (fd, "========================================================\n");
+        fprintf (fd, "Regs: ACCU: 0x%04x, IP: 0x%04x, SP: 0x%04x, ADDR: 0x%04x\n",
             machine_regs.accu, machine_regs.ip, machine_regs.sp,
             machine_regs.addr);
-        printf ("State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d\n",
+        fprintf (fd, "State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d\n",
             machine_state.instruction_l, machine_state.instruction_h,
             machine_state.halt, machine_state.instruction_size);
-        printf ("Stack: ");
+        fprintf (fd, "Stack: ");
         for (i=0; i<0xf;i++)
-            printf ("%02x ", stack[i]);
-        printf ("\n");
+            fprintf (fd, "%02x ", stack[i]);
+        fprintf (fd, "\n");
     }
+    fflush (fd);
     return;
 }
 
-void machine_init (uint8_t * progr, uint16_t size)
+void machine_init (uint8_t * progr, uint16_t size, FILE* _fd)
 {
+    fd = _fd;
     machine_regs.accu = 0;
     machine_regs.ip = 0;
     machine_regs.sp = 0;
@@ -132,6 +135,16 @@ void parse_instruction ()
         if (machine_state.instruction_l == IS_INC)
         {
             machine_regs.accu++;
+            return;
+        }
+        if (machine_state.instruction_l == IS_WRIT)
+        {
+            putchar ((uint8_t)machine_regs.accu);
+            return;
+        }
+        if (machine_state.instruction_l == IS_READ)
+        {
+            machine_regs.accu = (uint16_t)getchar_unlocked();
             return;
         }
     }

@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "machine.h"
 
-#define TEST_PRGR_SIZE 19
+#define TEST_PRGR_SIZE 23
 uint8_t test_prgr [TEST_PRGR_SIZE] = {
     IS_LACC, 0x07, 0x04,
     IS_PUSH,
@@ -13,19 +13,25 @@ uint8_t test_prgr [TEST_PRGR_SIZE] = {
     IS_POP,
     IS_INV,
     IS_ADD,
-    IS_JZ, 0x08, 0x00,
+    IS_LACC, 'A', 'B',
+    IS_WRIT,
+    IS_JZ,   0x08, 0x00,
     IS_HALT};
 
 int main ()
 {
     uint8_t i=0;
-    printf ("Test program:\n");
+    FILE* fd;
+    fd = fopen ("debug.out", "w");
+    fprintf (fd, "Test program:\n");
+    printf ("Machine IO (press Ctrl-C to exit):\n");
     for (i=0; i<TEST_PRGR_SIZE; i++)
-        printf ("0x%02x ", test_prgr [i]);
-    printf ("\nInit...\n");
-    machine_init (test_prgr, TEST_PRGR_SIZE);
-    printf ("Start.\n");
-    machine_run ();
-    printf ("Done.\n");
+        fprintf (fd, "0x%02x ", test_prgr [i]);
+    fprintf (fd, "\nInit...\n");
+    machine_init (test_prgr, TEST_PRGR_SIZE, fd);
+    fprintf (fd, "Start:\n");
+    machine_run (fd);
+    fprintf (fd, "Done.\n");
+    fclose (fd);
     return 0;
 }
