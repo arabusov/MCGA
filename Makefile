@@ -1,5 +1,7 @@
+CFLAGS=-ansi -pedantic
+
 all:
-	@gcc main.c -o mcga
-	@echo rm -rf ~ > run.sh
+	${CC} ${CFLAGS} machine.c main.c -o machine
+
 clean:
-	@rm -rf mcga
+	rm -rf machine
