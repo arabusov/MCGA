@@ -46,7 +46,7 @@ void print_state ()
         fprintf (fd, "Regs: ACCU: 0x%04x, IP: 0x%04x, SP: 0x%04x, ADDR: 0x%04x\n",
             machine_regs.accu, machine_regs.ip, machine_regs.sp,
             machine_regs.addr);
-        fprintf (fd, "State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d, JMP %d",
+        fprintf (fd, "State: IL: 0x%02x, IH: 0x%04x, HALT: %d, ISIZE: %d, JMP %d\n",
             machine_state.instruction_l, machine_state.instruction_h,
             machine_state.halt, machine_state.instruction_size,
             machine_state.jump);
@@ -98,6 +98,16 @@ void parse_instruction ()
             machine_regs.accu = machine_state.instruction_h;
             return;
         }
+        if (machine_state.instruction_l == IS_LACM)/*load accumulator from memory */
+        {
+            machine_regs.accu = mem [machine_state.instruction_h]; 
+            return;
+        }
+        if (machine_state.instruction_l == IS_LMAC)/*load in memory from accumulator*/
+        {
+            mem [machine_state.instruction_h] = machine_regs.accu;
+            return;
+        }
         if (machine_state.instruction_l == IS_JMP)
         {
             machine_regs.ip = machine_state.instruction_h;
@@ -130,8 +140,15 @@ void parse_instruction ()
         }
         if (machine_state.instruction_l == IS_ADD)
         {
-            machine_regs.accu += (uint16_t)stack[machine_regs.sp]+
-                (((uint16_t)stack[machine_regs.sp+1])<<8);
+            machine_regs.accu += (uint16_t)stack[machine_regs.sp-2]+
+                (((uint16_t)stack[machine_regs.sp-1])<<8);
+            return;
+        }
+        if (machine_state.instruction_l == IS_SUB)
+        {
+            machine_regs.accu = (uint16_t)((int16_t)machine_regs.accu-
+            (int16_t)((uint16_t)stack[machine_regs.sp-2]+
+                (((uint16_t)stack[machine_regs.sp-1])<<8)));
             return;
         }
         if (machine_state.instruction_l == IS_INV)
@@ -147,11 +164,22 @@ void parse_instruction ()
         if (machine_state.instruction_l == IS_WRIT)
         {
             putchar ((uint8_t)machine_regs.accu);
+            fflush (stdout);
             return;
         }
         if (machine_state.instruction_l == IS_READ)
         {
             machine_regs.accu = (uint16_t)getchar_unlocked();
+            return;
+        }
+        if (machine_state.instruction_l == IS_LADR)
+        {
+            machine_regs.addr = machine_regs.accu;
+            return;
+        }
+        if (machine_state.instruction_l == IS_LAC)
+        {
+            machine_regs.accu = (uint8_t)mem[machine_regs.addr];
             return;
         }
     }
@@ -165,6 +193,7 @@ void machine_run ()
         determine_instruction_size ();
         read_instruction ();
         parse_instruction ();
+        print_state ();
         if (!machine_state.halt)
             if (!machine_state.jump)
                 if (machine_state.instruction_size == 3)
@@ -176,7 +205,6 @@ void machine_run ()
         else
             exit_flag = 1;
         sleep (1);
-        print_state ();
     }
     return;
 }

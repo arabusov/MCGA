@@ -14,10 +14,13 @@ void machine_run ();
 #define IS_INC  0x06
 #define IS_READ 0x07
 #define IS_WRIT 0x08
+#define IS_LADR 0x09
+#define IS_LAC  0x0a
+#define IS_SUB  0x0b
 
 /*LONG INSTRUCTIONS*/
 #define IS_LACC 0x81
-#define IS_LMAC 0x82
-#define IS_LACM 0x83
+#define IS_LACM 0x82
+#define IS_LMAC 0x83
 #define IS_JMP  0x84
 #define IS_JZ   0x85
