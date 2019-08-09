@@ -1,5 +1,8 @@
 (define src 
-    (list "LABEL1: LA 0x43 0x29 ;;; this is comment"
+    (list "        LACC 0x43 0x29 ;;; this is comment"
+          " label1:JMP 0x03"
+          "        PUSH"
+          "        POP"
           " LaBeL: HALT\t; this is another comment"))
 (define short-opcodes
   (list
@@ -12,7 +15,7 @@
     (list "READ" #x07)
     (list "WRIT" #x08)
     (list "LADR" #x09)
-    (list "LAC"  #x0a)
+    (list "LACA"  #x0a)
     (list "SUB"  #x0b)))
 (define long-opcodes
   (list
@@ -78,12 +81,12 @@
                   pos
                   (find-instruction op instr-set (+ pos 1)))
               (find-instruction op instr-set (+ pos 1)))))))
-(find-instruction "POP" short-opcodes 0)
+(find-instruction "LACC" long-opcodes 0)
 (define instruction-code
   (lambda (instr-set pos)
     (list-ref (list-ref instr-set pos) 1)))
-(define parse-arg
-  (lambda (raw) (list 1 2)))
+(define parse-args
+  (lambda (raw) (list raw raw)))
 (define process-instruction
   (lambda (raw)
     (let*(
@@ -98,13 +101,13 @@
                       (mnem-cell (list-ref long-opcodes pos-in-long))
                       (mnem (car mnem-cell))
                       (mnem-code (car (cdr mnem-cell)))
+                      (raw-len (string-length wo-spaces))
                       (mnem-len (string-length mnem))
-                      (raw-len (string-length raw))
-                      (args-raw (substring mnem-len raw-len))
-                      (args (parse-args args-raw))
-                      (args-res (car args)))
-                  (if (>= args-res 0)
-                      (list mnem-code args-res (car (cdr args)))
+                      (raw-args (substring wo-spaces mnem-len raw-len))
+                      (args (parse-args raw-args))
+                      (args-res (length args)))
+                  (if (> args-res 0)
+                      (list mnem-code args)
                       -1))))
           (let*(
                 (mnem-cell (list-ref short-opcodes pos-in-short))
