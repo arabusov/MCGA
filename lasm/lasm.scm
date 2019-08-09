@@ -1,6 +1,26 @@
 (define src 
     (list "LABEL1: LA 0x43 0x29 ;;; this is comment"
-          " LaBeL: HALT ; this is another comment"))
+          " LaBeL: HALT\t; this is another comment"))
+(define short-opcodes
+  (list
+    (list "HALT" #x01)
+    (list "PUSH" #x02)
+    (list "POP"  #x03)
+    (list "ADD"  #x04)
+    (list "INV"  #x05)
+    (list "INC"  #x06)
+    (list "READ" #x07)
+    (list "WRIT" #x08)
+    (list "LADR" #x09)
+    (list "LAC"  #x0a)
+    (list "SUB"  #x0b)))
+(define long-opcodes
+  (list
+    (list "LACC" #x81)
+    (list "LACM" #x82)
+    (list "LMAC" #x83)
+    (list "JMP"  #x84)
+    (list "JZ"   #x85)))
 (define findc
     (lambda (str symb pos)
         (if (>= pos (string-length str))
@@ -16,10 +36,10 @@
                         (string-head str posc)
                         str)))
       instruction)))
-(define split-str
-  (lambda (str)
+(define split-str-by-symb
+  (lambda (str symb)
     (let* (
-           (posc (findc str ":" 0))
+           (posc (findc str symb 0))
            (label (if (>= posc 0)
                       (string-head str posc)
                     ""))
@@ -27,6 +47,8 @@
                             (string-tail str (+ posc 1))
                             str)))
       (list label instruction))))
+(define split-str 
+  (lambda (str) (split-str-by-symb str ":")))
 (define remove-char
   (lambda (str symb pos)
     (if (>= pos (string-length str))
@@ -37,11 +59,65 @@
               str
               (string-append (string-head str posc)
                              (remove-char (string-tail str (+ posc 1))
-                                          symb (+ posc 1))))))))
-(remove-char (car src) " " 0) 
-(map (lambda (str) 
-       (split-str (string-upcase (throw-away-comment str))))
-     src)
+                                          symb 0)))))))
+(define remove-spaces
+  (lambda (str) (remove-char str " " 0)))
+(define remove-tabs
+  (lambda (str) (remove-char str "\t" 0)))
+(define remove-word-breaks
+  (lambda (str) (remove-spaces (remove-tabs str))))
+(define find-instruction
+  (lambda (op instr-set pos)
+    (if (>= pos (length instr-set))
+        -1
+        (let*(
+              (suggested-op (list-ref (list-ref instr-set pos) 0))
+              (sug-op-len (string-length suggested-op)))
+          (if (<= sug-op-len (string-length op))
+              (if (equal? (substring op 0 sug-op-len) suggested-op)
+                  pos
+                  (find-instruction op instr-set (+ pos 1)))
+              (find-instruction op instr-set (+ pos 1)))))))
+(find-instruction "POP" short-opcodes 0)
+(define instruction-code
+  (lambda (instr-set pos)
+    (list-ref (list-ref instr-set pos) 1)))
+(define parse-arg
+  (lambda (raw) (list 1 2)))
+(define process-instruction
+  (lambda (raw)
+    (let*(
+          (wo-spaces (remove-word-breaks raw))
+          (pos-in-short (find-instruction wo-spaces short-opcodes 0)))
+      (if (< pos-in-short 0)
+          (let*(
+                (pos-in-long (find-instruction wo-spaces long-opcodes 0)))
+            (if (< pos-in-long 0)
+                (list -1)
+                (let*(
+                      (mnem-cell (list-ref long-opcodes pos-in-long))
+                      (mnem (car mnem-cell))
+                      (mnem-code (car (cdr mnem-cell)))
+                      (mnem-len (string-length mnem))
+                      (raw-len (string-length raw))
+                      (args-raw (substring mnem-len raw-len))
+                      (args (parse-args args-raw))
+                      (args-res (car args)))
+                  (if (>= args-res 0)
+                      (list mnem-code args-res (car (cdr args)))
+                      -1))))
+          (let*(
+                (mnem-cell (list-ref short-opcodes pos-in-short))
+                (mnem-code (car (cdr mnem-cell))))
+            (list mnem-code))))))
+(define scr-list
+  (map (lambda (str) 
+         (let*(
+               (cmd (split-str (string-upcase (throw-away-comment str)))))
+           (list (remove-word-breaks (car cmd)) (process-instruction
+                                                  (car (cdr cmd))))))
+     src))
+(write scr-list)
 (define output-program (list 1 0 0 12 0 0 9 8 7))
 (define output (open-output-file "a.out"))
 (map
