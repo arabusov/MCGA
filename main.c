@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "machine.h"
 
 uint8_t test_prgr [] = {
@@ -67,20 +68,46 @@ uint8_t hello_world [] =
     IS_HALT
 };
 
-int main ()
+int main (int argc, char**argv)
 {
     uint8_t i=0;
-    FILE* fd;
+    FILE *fd;
+    FILE *input_file=NULL;
+    uint8_t *program;
+    size_t program_size;
     fd = fopen ("debug.out", "w");
     fprintf (fd, "Test program:\n");
     printf ("Machine IO (press Ctrl-C to exit):\n");
-    for (i=0; i<sizeof (hello_world); i++)
-        fprintf (fd, "0x%02x ", hello_world[i]);
+    /*Input*/
+    if (argc==2)
+        input_file = fopen (argv[1], "rb");
+    if (input_file)
+    {
+        int ptr=0;
+        fseek (input_file, 0L, SEEK_END);
+        program_size = ftell (input_file);
+        fseek (input_file, 0L, SEEK_SET);
+        program = calloc (program_size, sizeof (uint8_t));
+        fread (program, program_size, 1, input_file);
+        fclose (input_file);
+    }
+    else
+    {
+        program = hello_world;
+        program_size = sizeof (hello_world);
+    }
+    for (i=0; i<sizeof (program); i++)
+    {
+        fprintf (fd, "0x%02x ", program[i]);
+        if (i%16) fprintf (fd, "\n");
+    }
     fprintf (fd, "\nInit...\n");
-    machine_init (hello_world, sizeof (hello_world), fd);
+    machine_init (program, program_size, fd);
     fprintf (fd, "Start:\n");
     machine_run (fd);
     fprintf (fd, "Done.\n");
     fclose (fd);
+    if (input_file && program)
+        free (program);
     return 0;
 }
