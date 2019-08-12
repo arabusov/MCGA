@@ -1,9 +1,11 @@
-(define src 
-    (list "        LACC 0x43 0x39 ;;; this is comment"
-          " label1:JMP 0x03"
-          "        PUSH"
-          "        POP"
-          " LaBeL: HALT\t; this is another comment"))
+(define (get-src input-file src)
+  (let*(
+        (inp-line (read-line input-file)))
+    (if (eof-object? inp-line)
+        src
+        (get-src input-file (append src (list inp-line))))))
+(define input (open-input-file "source.asm"))
+(define src (get-src input ()))
 (define digits
   (string->list "0123456789"))
 (define literals
@@ -34,11 +36,6 @@
               (aint (char->integer #\A))
               (fint (char->integer #\F)))
           (and (>= int aint) (<= int fint))))))
-(write (map (lambda (char) (char-in-digits? char))
-            (string->list "0123456789ABCDEFGH")))
-(write (map (lambda (char) (is-hex? char))
-            (string->list "0123456789ABCDEFGH")))
-(write (is-hex? #\H))
 (define (check-list predicate li pos)
   (if (>= pos (length li))
       #t
@@ -76,10 +73,6 @@
             (f convli 0 0))
           -1)
       )))
-(write
-  (map (lambda
-         (str) (hex->int (string->list str)))
-       (list "9" "A" "B" "F" "10" "100")))
 (define short-opcodes
   (list
     (list "HALT" #x01)
@@ -91,7 +84,7 @@
     (list "READ" #x07)
     (list "WRIT" #x08)
     (list "LADR" #x09)
-    (list "LACA"  #x0a)
+    (list "LACA" #x0a)
     (list "SUB"  #x0b)))
 (define long-opcodes
   (list
@@ -214,18 +207,77 @@
               (mnem-cell (list-ref short-opcodes pos-in-short))
               (mnem-code (car (cdr mnem-cell))))
           (list mnem-code))))))
-(define src-list
-  (map (lambda (str)
-         (let*(
-               (cmd (split-str (string-upcase (throw-away-comment str)))))
-           (list (remove-word-breaks (car cmd)) (process-instruction
-                                                  (car (cdr cmd))))))
-       src))
-(write src-list)
-(define output-program (list 1 0 0 12 0 0 9 8 7))
-(define output (open-output-file "a.out"))
-(map
-  (lambda (byte)
-    (write-char (integer->char byte) output))
-  output-program)
+(define enumerate-src
+  (lambda (src enumerated-list curr-size pos)
+    (if (>= pos (length src))
+        enumerated-list
+        (let*(
+              (str (list-ref src pos))
+              (no-comments (string-upcase (throw-away-comment str)))
+              (cmd (split-str no-comments))
+              (instr (process-instruction (second cmd)))
+              (label (remove-word-breaks (car cmd)))
+              (sursize (if (= (length instr) 2) 3 1))
+              (item (list pos curr-size label instr))
+              (return (append enumerated-list (list item))))
+          (enumerate-src src return (+ curr-size sursize) (+ pos 1))))))
+(define (find-label-pointer enum-src label)
+  (second (find (lambda (item)
+                  (let*(
+                        (curr-label (third item)))
+                    (equal? curr-label label))) enum-src)))
+(define (substitute-labels enum-src bin-code pos)
+  (if (>= pos (length enum-src))
+      bin-code
+      (let*(
+            (item (list-ref enum-src pos))
+            (instr (fourth item))
+            (new-args
+              (if (= (length instr) 2)
+                  (let*(
+                        (args (second instr)))
+                    (if (= (length args) 1)
+                        (let*(
+                              (ref-to-instr (find-label-pointer
+                                              enum-src (car args))))
+                          (if ref-to-instr
+                              (if (> ref-to-instr #xff)
+                                  (list (bitwise-and #xff ref-to-instr)
+                                        (arithmetic-shift -8 ref-to-instr))
+                                  (list ref-to-instr 0))
+                              (list -1 -1)))
+                        args))
+                  ()))
+            (new-item (list (first item) (second item) (third item) (car instr)
+                             new-args))
+            (new-bin (append bin-code (list new-item))))
+            (substitute-labels enum-src new-bin (+ pos 1)))))
+(define enum-src (enumerate-src src () 0 0))
+(define bin-code (substitute-labels enum-src () 0))
+(define (make-out binary-list out-list pos)
+  (if (>= pos (length binary-list))
+      out-list
+      (let*(
+            (item (list-ref binary-list pos))
+            (l (number->string (first item)))
+            (instr (fourth item))
+            (args (fifth item))
+            (toappend
+              (if (= (length args) 2)
+                  (let*(
+                        (a1 (first args))
+                        (a2 (second args)))
+                    (if (< a1 0)
+                        (raise ((string-joiner) l ": wrong arg1"))
+                      (if (< a2 0)
+                          (raise ((string-joiner) l ": wrong arg2"))
+                        (list instr a1 a2))))
+                  (if (< instr 0)
+                      (raise ((string-joiner) l ": wrong instr - "
+                                              (number->string instr)))
+                      (list instr)))))
+        (make-out binary-list (append out-list toappend) (+ pos 1)))))
+(define output-program (make-out bin-code () 0))
+(define output (open-binary-output-file "a.out"))
+(write-bytevector (list->bytevector output-program) output)
 (close-output-port output)
