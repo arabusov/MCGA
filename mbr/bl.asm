@@ -38,7 +38,7 @@ loo:    mov [bx], ax
 
 halt:   hlt
         jmp halt
-blmsg:  db  "Test boot loader message."
+blmsg:  db  "Boot loader: HALT."
 blln    equ $-blmsg
 size    equ $-start
         times 512*3-size db 0 ;empty sectors

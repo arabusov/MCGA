@@ -3,11 +3,22 @@ bits 16
 section .text
 org 7c00h
 start: 
+        ;save disc info
         push    dx
+        ; init screen address
         mov ax, 0b800h
         mov ds, ax
+        ; init data segment
         mov ax, 0
         mov es, ax
+        ; parse disc info
+        test    dl,0x80
+        jnz     disc_c
+        add     dl, 'A'
+        jmp     save_l
+disc_c: and     dl,0x7f ; or even 0x0f
+        add     dl, 'C'
+save_l: mov     [es:disc_p],dl
         mov bx, 80*25*2+2
         mov ax, 0200h
 clear:  mov [bx-2], ax
@@ -58,7 +69,9 @@ loo:    mov [bx], ax
         jmp BLCS:BLIP; long jump to the BL
 halt:   hlt
         jmp halt
-mbrmsg: db  "Test MBR message."
+mbrmsg: db  "MBR loaded from disc X"
+disc_p  equ $-1
+        db  ". Start boot loader..."
 mbrln   equ $-mbrmsg
 size    equ $-start
         times 510-size db 0
