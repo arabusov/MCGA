@@ -1,6 +1,6 @@
 bits 16
 section .text
-org 0x200
+org 0x1000
 start:  mov ax, 0xb800
         mov ds, ax
         mov ax, 0
@@ -37,7 +37,7 @@ loo:    mov [bx], ax
 
 halt:   hlt
         jmp halt
-blmsg:  db  "Test BL message."
+blmsg:  db  "Test boot loader message."
 blln    equ $-blmsg
 size    equ $-start
         times 512*3-size db 0 ;empty sectors

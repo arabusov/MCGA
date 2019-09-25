@@ -12,4 +12,4 @@ run: build
 	qemu-system-i386 -fda img.bin
 
 clean:
-	rm *.bin
+	rm -f *.bin
