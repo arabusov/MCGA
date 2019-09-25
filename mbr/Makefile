@@ -1,10 +1,15 @@
 
+build: mbr bl
+	cat mbr.bin > img.bin
+	cat bl.bin >> img.bin
 
-build:
+mbr:
 	nasm -f bin mbr.asm -o mbr.bin
+bl:
+	nasm -f bin bl.asm -o bl.bin
 
 run: build
-	qemu-system-i386 -fda mbr.bin
+	qemu-system-i386 -fda img.bin
 
 clean:
-	rm mbr.bin
+	rm *.bin

@@ -40,7 +40,18 @@ loo:    mov [bx], ax
         mov al, bh
         out dx, al
 
-        hlt
+        ; start to read next sectors
+        mov bx, 0x0200 ; relative address for the BL
+        mov ah, 0x02
+        mov al, 3 ;n sectors
+        mov ch, 0 ;cylinder
+        mov cl, 2 ;sector, numbering from 1
+        mov dh, 0 ;head
+                  ; dl is initialized
+        int 0x13
+        jmp 0x0000:0x0200 ; long jump to the BL
+halt:   hlt
+        jmp halt
 mbrmsg: db  "Test MBR message."
 mbrln   equ $-mbrmsg
 size    equ $-start
