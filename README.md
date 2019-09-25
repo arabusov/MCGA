@@ -1,6 +1,19 @@
 # Make pure C Great Again
 ## Prerequirements
 For using LASM (LASM assembler) you need to install _mit-scheme_
+
+To test mbr you have to install
+  - nasm
+  - qemu (qemu-system-i386)
+
+## Testing MBR program
+```bash
+cd mbr
+make run
+```
+
+Enjoy!
+
 ## Compile Turing machine
 ```
 make
