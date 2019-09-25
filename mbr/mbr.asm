@@ -1,3 +1,4 @@
+%include "bl.inc"
 bits 16
 section .text
 org 7c00h
@@ -44,17 +45,17 @@ loo:    mov [bx], ax
 
         ; start to read next sectors
         pop dx
-        mov ax, 0x0100
+        mov ax, BLCS
         mov es, ax
-        mov bx, 0x0000 ; relative address for the BL
+        mov bx, BLIP ; relative address for the BL
         mov ah, 0x02
-        mov al, 3 ;n sectors
+        mov al, BLNSEC ;n sectors
         mov ch, 0 ;cylinder
         mov cl, 2 ;sector, numbering from 1
         mov dh, 0 ;head
                   ; dl is initialized
         int 0x13
-        jmp 0x0000:0x1000 ; long jump to the BL
+        jmp BLCS:BLIP; long jump to the BL
 halt:   hlt
         jmp halt
 mbrmsg: db  "Test MBR message."

@@ -1,10 +1,11 @@
 bits 16
 section .text
-org 0x1000
+%include "bl.inc"
+org BLIP
 start:  mov ax, 0xb800
         mov ds, ax
-        mov ax, 0
-        mov es, ax
+        mov ax, BLCS
+        mov es, ax ;es==cs
 
         mov bx, 80*2;newline
         mov cx, blln+1
