@@ -23,14 +23,14 @@ start:
         call    find1part 
         call    printpartinfo
         call    printdiscinfo
+        call    loadfat1
+        call    loadroot
 
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
 halt:   hlt
         jmp halt
-
-
 
 ; subroutines
 printdiscinfo:
@@ -52,6 +52,7 @@ printdiscinfo:
         pop     ax
         push    ax
         and     ax,0x3f; [5 -- 0] bits
+        mov     [maxsec],al
         call    printalln
         mov     cx, ncylmsgln
         mov     bp, ncylmsg
@@ -59,40 +60,52 @@ printdiscinfo:
         pop     ax
         push    ax
         shr     al,6
+        mov     [maxcyl+1],al
         call    printal
         mov     al,ah
+        mov     [maxcyl],al
         call    printalln
         mov     cx,nheadmsgln
         mov     bp,nheadmsg
         call    print
         mov     al,dh
+        mov     [maxhead],al
         call    printalln
 
         pop     cx
         popa
         ret
-getfatsize:
-        pusha
-        push    es
-        mov     ax, BLCS
-        mov     es,ax
 
-        pop     es
+loadfat1:
+        pusha
+        mov     bx,fat1
+        mov     cx,1
+        mov     al,FATSIZE
+        call    loadfromdisc
+        popa
+        ret
+loadroot:
+        pusha
+        mov     bx,root
+        mov     cx,1+2*FATSIZE
+        mov     al,ROOTSIZE
+        call    loadfromdisc
         popa
         ret
 
-load1part:
+loadfromdisc:
         pusha
         push    es
-        mov     ax, BLCS
-        mov     es,ax
-        mov     bx, tailptr
+
+        mov     dx, BLCS
+        mov     es,dx
         mov     dl,[disc]
         mov     ah,0x02
-        mov     al,1
+        push    ax
         int     0x13
+        pop     bx
         jc      read_error
-        cmp     al,1
+        cmp     al,bl
         jne     read_error
         ; everything is fine: continue
         jmp     readexit
@@ -111,6 +124,7 @@ readexit:
         pop     es
         popa
         ret
+
 printpartinfo:
         pusha
         push    ax
@@ -357,10 +371,14 @@ drtypemsg       db  "Drive type:          0x"
 drtypemsgln     equ $-drtypemsg
 haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
+maxsec          db  0
+maxhead         db  0
+maxcyl          dw  0
 align 2
 stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
-tailptr:  equ stcke+2
+fat1  equ stcke+2
+root    equ fat1+FATSIZE   
 size    equ $-start
         times 512*BLNSEC-size db 0 ;empty sectors
 
