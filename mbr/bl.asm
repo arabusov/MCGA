@@ -22,7 +22,8 @@ start:
 
         call    find1part 
         call    printpartinfo
-        call    load1part
+        call    printdiscinfo
+
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
@@ -32,6 +33,23 @@ halt:   hlt
 
 
 ; subroutines
+printdiscinfo:
+        pusha
+        mov     ah,0x08
+        mov     dl,[disc]
+        int     0x13
+        mov     bx,BLCS
+        mov     es,bx
+        push    cx
+        mov     cx, nsecmsgln
+        mov     bp, nsecmsg
+        call    print
+        pop     ax
+        push    ax
+        call    printalln
+        pop     cx
+        popa
+        ret
 getfatsize:
         pusha
         push    es
@@ -306,9 +324,11 @@ headpartmsg     db  "Partition 1 head:    0x"
 headpartmsgln   equ $-headpartmsg
 cspartmsg       db  "Partition 1 cyl&sec: 0x"
 cspartmsgln     equ $-cspartmsg
-readerrmsg      db  "Read error. INT 13H code: 0x"
+readerrmsg      db  "Read error. INT 13H: 0x"
 readerrmsgln    equ $-readerrmsg
-haltmsg         db  "HALT PROCESSOR.", 13, "Y."
+nsecmsg         db  "N Sectors / track:   0x"
+nsecmsgln       equ $-nsecmsg
+haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
 align 2
 stckb:  times BLSTCKSIZE db 0

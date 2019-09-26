@@ -22,7 +22,7 @@
     ; partition entry no. 1 pointer:
     %define PART1PTR 0x1be
     ; first sector of partition 1
-    %define PART1CYLSEC BLNSEC+1
+    %define PART1CYLSEC 1
     ; first head of the same thing
     %define PART1HEAD   0x00
     ; geometry: 512 bytes x 18 sectors x 80 cylinders x 2 heads

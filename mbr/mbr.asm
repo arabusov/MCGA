@@ -51,33 +51,18 @@ clear:  mov [bx-2], ax
 
         ; start to read next sectors
         pop dx
-        mov ax, 0
-        mov es, ax
-        mov di,0
-        mov ah,0x08
-        int 0x13
-        mov bx,cx
-        and bx,0x003f ;[5 -- 0]
-        inc bx
-        mov ax,33
-        div bl
-        mov cl,al
-
-
-
 
         mov ax, BLCS
         mov es, ax
         mov bx, BLIP ; relative address for the BL
         mov ah, 0x02
-        mov al, BLNSEC ;n sectors
+        mov al, BLNSEC;n sectors
         mov ch, 0 ;cylinder
+        mov cl, 34
         mov dh, 0 ;head
                   ; dl is initialized
         int 0x13
 ;test error message
-        mov bx, 0x00
-        mov es, bx  ; set es back to original
         ; Process INT 13h errors
                     ;carry flag = 1 if error
         jc  error
