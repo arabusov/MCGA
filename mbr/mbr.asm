@@ -1,8 +1,27 @@
 %include "bl.inc"
+%include "fat12.inc"
 bits 16
 section .text
+%define BTSTRPTR 30
 org 7c00h
-start: 
+start:
+        jmp     bootstrap
+        nop
+        db      "ATIX001"   ;OEM name
+        dw      NBYTEPSEC   ;n bytes/sector
+        db      NSECPCLU    ;n sectors/cluster
+        dw      1           ;n reserved sectors
+        db      2           ;n FAT reserved copies
+        dw      224         ;n of root dir
+        dw      2880        ;total n of sectors
+        db      0xf0        ;media descriptor, floppy
+        dw      FATSIZE     ;number of fat sectors
+        dw      NSECS       ;sectors per track
+        dw      NHEADS      ;n of heads
+        dw      0           ;n of hidden sectors
+fillsize equ $-start
+        times   BTSTRPTR-fillsize  db  0
+bootstrap:
         ;save disc info
         push    dx
         ; init screen address
@@ -32,13 +51,27 @@ clear:  mov [bx-2], ax
 
         ; start to read next sectors
         pop dx
+        mov ax, 0
+        mov es, ax
+        mov di,0
+        mov ah,0x08
+        int 0x13
+        mov bx,cx
+        and bx,0x003f ;[5 -- 0]
+        inc bx
+        mov ax,33
+        div bl
+        mov cl,al
+
+
+
+
         mov ax, BLCS
         mov es, ax
         mov bx, BLIP ; relative address for the BL
         mov ah, 0x02
         mov al, BLNSEC ;n sectors
         mov ch, 0 ;cylinder
-        mov cl, 2 ;sector, numbering from 1
         mov dh, 0 ;head
                   ; dl is initialized
         int 0x13
@@ -57,6 +90,8 @@ halt:   hlt
 
 error:
         ; translate ah to ascii
+        mov bx,0
+        mov es,bx
         mov dh, ah
         and ah, 0x0f
         cmp ah, 0x0a
@@ -86,7 +121,11 @@ contin2:
         call    print
         jmp halt
 ;subroutines
-print:  mov al, [es:bp]
+print:  
+        push es
+        mov ax,0
+        mov es,ax
+        mov al, [es:bp]
         mov ah, 02h
 loo:    mov [bx], ax
         add bx, 2
@@ -110,6 +149,7 @@ loo:    mov [bx], ax
         inc dl
         mov al, bh
         out dx, al
+        pop es
         ret
 
 ; data

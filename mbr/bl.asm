@@ -22,12 +22,56 @@ start:
 
         call    find1part 
         call    printpartinfo
+        call    load1part
+        mov     bp,haltmsg
+        mov     cx,haltmsgln
+        call    println
 halt:   hlt
         jmp halt
 
 
 
 ; subroutines
+getfatsize:
+        pusha
+        push    es
+        mov     ax, BLCS
+        mov     es,ax
+
+        pop     es
+        popa
+        ret
+
+load1part:
+        pusha
+        push    es
+        mov     ax, BLCS
+        mov     es,ax
+        mov     bx, tailptr
+        mov     dl,[disc]
+        mov     ah,0x02
+        mov     al,1
+        int     0x13
+        jc      read_error
+        cmp     al,1
+        jne     read_error
+        ; everything is fine: continue
+        jmp     readexit
+
+read_error:
+        mov     bp,readerrmsg 
+        mov     cx,readerrmsgln
+        call    print
+        push    ax
+        mov     al,ah
+        call    printalln
+        pop     ax
+haltr:  hlt
+        jmp haltr
+readexit:
+        pop     es
+        popa
+        ret
 printpartinfo:
         pusha
         push    ax
@@ -62,10 +106,7 @@ printpartinfo:
 
 printalln:
         call    printal
-        push    cx
-        mov     cx,0
-        call    println
-        pop     cx
+        call    newline
         ret
 println:
         pusha
@@ -73,6 +114,11 @@ println:
         call    mvcurs
         shl bx,1
         call    print
+        call    newline
+        popa
+        ret
+newline:
+        pusha
         mov ax, [es:crsps]
         mov bl,SCRNCL
         div bl
@@ -128,25 +174,55 @@ print:
         shl     bx,1
         mov ax, SCRSEG
         mov ds, ax
-        mov al, [es:bp]
         mov ah, 0x02
-loo:    cmp bx, SCRNCL*SCRNRW*2
-        jb  contprint
+get_symbol:
+        mov al, [es:bp]
+        cmp     al, 13 ;newline
+        jnz     check_10
+        push    bx
+        shr     bx,1
+        mov     [es:crsps],bx
+        call    mvcurs
+        call    newline
+        pop     bx
+        inc     bp
+        dec     cx
+        jz      endprn
+        jmp     get_symbol
+check_10:
+        cmp     al,10
+        jnz     contprint1
+        push    ax
+        mov     ax,bx
+        mov     bl,SCRNCL
+        div     bl
+        mov     bl,SCRNCL
+        mul     bl
+        mov     bx,ax
+        pop     ax
+        inc     bp
+        dec     cx
+        jz      endprn
+        jmp     get_symbol
+
+contprint1:
+        cmp bx, SCRNCL*SCRNRW*2
+        jb  contprint2
         call    nl
         mov bx,SCRNCL*(SCRNRW-1)*2
         push bx
         shr bx,1
         call    mvcurs
         pop bx
-contprint:
+contprint2:
         mov [bx], ax
         add bx, 2
         inc bp
-        mov al, [es:bp]
-        loop loo
+        loop get_symbol
+
+endprn:
         shr bx,1
         call mvcurs
-endprn:
         pop ds
         popa
         ret
@@ -230,9 +306,14 @@ headpartmsg     db  "Partition 1 head:    0x"
 headpartmsgln   equ $-headpartmsg
 cspartmsg       db  "Partition 1 cyl&sec: 0x"
 cspartmsgln     equ $-cspartmsg
+readerrmsg      db  "Read error. INT 13H code: 0x"
+readerrmsgln    equ $-readerrmsg
+haltmsg         db  "HALT PROCESSOR.", 13, "Y."
+haltmsgln       equ $-haltmsg
 align 2
 stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
+tailptr:  equ stcke+2
 size    equ $-start
         times 512*BLNSEC-size db 0 ;empty sectors
 

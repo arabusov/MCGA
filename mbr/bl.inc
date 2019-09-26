@@ -7,7 +7,12 @@
     ; boot loader cs
     %define BLCS    0x0100 
     ; maximum 10 sectors (512 bytes each)
+    %include "fat12.inc"
     %define BLNSEC  10
+    %define BLFST   2*FATSIZE+ROOTSIZE+1
+    %define BLFSTCYL  0
+    %define BLFSTHEAD 1
+    %define BLFSTSEC  16
     ; screen memory address
     %define SCRSEG  0xb800
     %define SCRNRW  25
