@@ -122,6 +122,17 @@ errcod: equ $-3
 errln   equ $-errmsg
 
 size    equ $-start
-        times 510-size db 0
-        dw      0aa55h
+        times 446-size db 0
+;first partition
+       ; times 16 db 0
+        db  0x80
+        db  PART1HEAD
+        dw  PART1CYLSEC
+        db  0x01 ;type
+        db  PART1ENDHEAD
+        dw  PART1ENDCYLSEC
+        times 4 db  0x00
+        times 4 db  0x00
+        times 16*3 db 0
+        dw      0xaa55
 

@@ -10,6 +10,9 @@ start:
         mov ax, BLCS
         mov ss, ax
         mov sp, stcke
+        
+        ;save disk number
+        mov [disc],dl
 
         mov bx, SCRNCL;newline
         mov [es:crsps], bx
@@ -17,23 +20,53 @@ start:
         mov bp, blmsg
         call println
 
-        mov cx,0x1f
-many:
-        mov al,cl
-        call    printal
-        push cx
-        mov cx,cntmsgln
-        mov bp,cntmsg
-        call println
-        pop cx
-        loop many
-
-
-
+        call    find1part 
+        call    printpartinfo
 halt:   hlt
         jmp halt
 
+
+
 ; subroutines
+printpartinfo:
+        pusha
+        push    ax
+        push    cx
+        mov     bp,stpartmsg
+        mov     cx,stpartmsgln
+        call    print
+        call    printalln
+        mov     bp,typepartmsg
+        mov     cx,typepartmsgln
+        call    print
+        mov     al,ah
+        call    printalln
+        mov     bp,headpartmsg
+        mov     cx,headpartmsgln
+        call    print
+        mov     al,dh
+        call    printalln
+        mov     bp,cspartmsg
+        mov     cx,cspartmsgln
+        call    print
+        pop     ax ;cx with result of find1part -> ax
+        push    ax
+        mov     al,ah
+        call    printal
+        pop     ax
+        call    printalln
+        mov     cx,ax
+        pop     ax
+        popa
+        ret
+
+printalln:
+        call    printal
+        push    cx
+        mov     cx,0
+        call    println
+        pop     cx
+        ret
 println:
         pusha
         mov bx, [es:crsps]
@@ -88,9 +121,11 @@ contin2:
 
 print:  
         pusha
+        push ds
+        cmp     cx,0
+        jz      endprn
         mov     bx,[es:crsps]
         shl     bx,1
-        push ds
         mov ax, SCRSEG
         mov ds, ax
         mov al, [es:bp]
@@ -111,6 +146,7 @@ contprint:
         loop loo
         shr bx,1
         call mvcurs
+endprn:
         pop ds
         popa
         ret
@@ -166,14 +202,34 @@ clearln:
         popa
         ret
 
+find1part:
+        push    ds
+
+        mov     ax,0x07c0 ;yes, this is the mbr prgr
+        mov     ds,ax
+
+        mov     bx,PART1PTR
+        mov     al,[bx]; status
+        mov     ah,[bx+4]; type
+        mov     dh,[bx+1]; head
+        mov     cx,[bx+2];cyl/sector
+        pop     ds
+        ret
 
 
 blmsg:  db  "Boot loader..."
 blln    equ $-blmsg
 alres   db  "XX"
+disc    db  0
 crsps   dw  0
-cntmsg  db  " -- counter."
-cntmsgln equ $-cntmsg
+stpartmsg       db  "Partition 1 status:  0x"
+stpartmsgln     equ $-stpartmsg
+typepartmsg     db  "Partition 1 type:    0x"
+typepartmsgln   equ $-typepartmsg
+headpartmsg     db  "Partition 1 head:    0x"
+headpartmsgln   equ $-headpartmsg
+cspartmsg       db  "Partition 1 cyl&sec: 0x"
+cspartmsgln     equ $-cspartmsg
 align 2
 stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
