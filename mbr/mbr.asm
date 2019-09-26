@@ -28,7 +28,25 @@ clear:  mov [bx-2], ax
         mov bx, 0
         mov cx, mbrln+1
         mov bp, mbrmsg
-        mov al, [es:bp]
+        call print
+
+        ; start to read next sectors
+        pop dx
+        mov ax, BLCS
+        mov es, ax
+        mov bx, BLIP ; relative address for the BL
+        mov ah, 0x02
+        mov al, BLNSEC ;n sectors
+        mov ch, 0 ;cylinder
+        mov cl, 2 ;sector, numbering from 1
+        mov dh, 0 ;head
+                  ; dl is initialized
+        int 0x13
+        jmp BLCS:BLIP; long jump to the BL
+halt:   hlt
+        jmp halt
+;subroutines
+print:  mov al, [es:bp]
         mov ah, 02h
 loo:    mov [bx], ax
         add bx, 2
@@ -53,22 +71,9 @@ loo:    mov [bx], ax
         inc dl
         mov al, bh
         out dx, al
+        ret
 
-        ; start to read next sectors
-        pop dx
-        mov ax, BLCS
-        mov es, ax
-        mov bx, BLIP ; relative address for the BL
-        mov ah, 0x02
-        mov al, BLNSEC ;n sectors
-        mov ch, 0 ;cylinder
-        mov cl, 2 ;sector, numbering from 1
-        mov dh, 0 ;head
-                  ; dl is initialized
-        int 0x13
-        jmp BLCS:BLIP; long jump to the BL
-halt:   hlt
-        jmp halt
+; data
 mbrmsg: db  "MBR loaded from disc X"
 disc_p  equ $-1
         db  ". Start boot loader..."
