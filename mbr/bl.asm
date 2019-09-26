@@ -41,5 +41,5 @@ halt:   hlt
 blmsg:  db  "Boot loader: HALT."
 blln    equ $-blmsg
 size    equ $-start
-        times 512*3-size db 0 ;empty sectors
+        times 512*BLNSEC-size db 0 ;empty sectors
 

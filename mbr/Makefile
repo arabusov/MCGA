@@ -9,7 +9,7 @@ bl:
 	nasm -f bin bl.asm -o bl.bin
 
 run: build
-	qemu-system-i386 -drive format=raw,file=img.bin
+	qemu-system-i386 -drive format=raw,if=floppy,file=img.bin
 
 clean:
 	rm -f *.bin
