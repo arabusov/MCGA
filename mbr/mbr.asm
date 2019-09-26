@@ -26,7 +26,7 @@ clear:  mov [bx-2], ax
         jnz clear
 
         mov bx, 0
-        mov cx, mbrln+1
+        mov cx, mbrln
         mov bp, mbrmsg
         call print
 
@@ -42,8 +42,48 @@ clear:  mov [bx-2], ax
         mov dh, 0 ;head
                   ; dl is initialized
         int 0x13
+;test error message
+        mov bx, 0x00
+        mov es, bx  ; set es back to original
+        ; Process INT 13h errors
+                    ;carry flag = 1 if error
+        jc  error
+        cmp al, BLNSEC ; al = number of actual sectors read
+        jne error
+        ; If there is no errors -- jump to boot loader code
         jmp BLCS:BLIP; long jump to the BL
 halt:   hlt
+        jmp halt
+
+error:
+        ; translate ah to ascii
+        mov dh, ah
+        and ah, 0x0f
+        cmp ah, 0x0a
+        jae adda
+        ; add '0'
+        add ah, '0'
+        jmp contin
+        ; add 'A'
+adda:   add ah, 'A'
+        sub ah, 0x0a
+
+contin:
+        shr dh, 4
+        cmp dh, 0x0a
+        jae adda2
+        ; add '0'
+        add dh, '0'
+        jmp contin2
+adda2:  add dh, 'A'
+        sub dh, 0x0a
+contin2:
+        mov al, dh
+        mov [es:errcod],ax
+        mov bx, 80*2 ; next line relative to the first msg
+        mov cx, errln
+        mov bp, errmsg
+        call    print
         jmp halt
 ;subroutines
 print:  mov al, [es:bp]
@@ -54,7 +94,6 @@ loo:    mov [bx], ax
         mov al, [es:bp]
         loop loo
         shr bx,1
-        dec bx
 
         mov dx, 0x03d4
         mov al, 0x0f
@@ -78,6 +117,10 @@ mbrmsg: db  "MBR loaded from disc X"
 disc_p  equ $-1
         db  ". Start boot loader..."
 mbrln   equ $-mbrmsg
+errmsg: db  "Disc error. Return code (BIOS INT 13h): 0xXX."
+errcod: equ $-3
+errln   equ $-errmsg
+
 size    equ $-start
         times 510-size db 0
         dw      0aa55h

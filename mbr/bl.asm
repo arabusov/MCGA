@@ -8,9 +8,13 @@ start:  mov ax, 0xb800
         mov es, ax ;es==cs
 
         mov bx, 80*2;newline
-        mov cx, blln+1
+        mov cx, blln
         mov bp, blmsg
-        mov al, [es:bp]
+        call print
+
+halt:   hlt
+        jmp halt
+print:  mov al, [es:bp]
         mov ah, 02h
 loo:    mov [bx], ax
         add bx, 2
@@ -18,7 +22,6 @@ loo:    mov [bx], ax
         mov al, [es:bp]
         loop loo
         shr bx,1
-        dec bx
 
         mov dx, 0x03d4
         mov al, 0x0f
@@ -35,9 +38,7 @@ loo:    mov [bx], ax
         inc dl
         mov al, bh
         out dx, al
-
-halt:   hlt
-        jmp halt
+        ret
 blmsg:  db  "Boot loader: HALT."
 blln    equ $-blmsg
 size    equ $-start
