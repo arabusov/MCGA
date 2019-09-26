@@ -38,15 +38,36 @@ printdiscinfo:
         mov     ah,0x08
         mov     dl,[disc]
         int     0x13
-        mov     bx,BLCS
-        mov     es,bx
+        mov     bp,BLCS
+        mov     es,bp
         push    cx
+        mov     cx,drtypemsgln
+        mov     bp,drtypemsg
+        call    print
+        mov     al,bl
+        call    printalln
         mov     cx, nsecmsgln
         mov     bp, nsecmsg
         call    print
         pop     ax
         push    ax
+        and     ax,0x3f; [5 -- 0] bits
         call    printalln
+        mov     cx, ncylmsgln
+        mov     bp, ncylmsg
+        call    print
+        pop     ax
+        push    ax
+        shr     al,6
+        call    printal
+        mov     al,ah
+        call    printalln
+        mov     cx,nheadmsgln
+        mov     bp,nheadmsg
+        call    print
+        mov     al,dh
+        call    printalln
+
         pop     cx
         popa
         ret
@@ -326,8 +347,14 @@ cspartmsg       db  "Partition 1 cyl&sec: 0x"
 cspartmsgln     equ $-cspartmsg
 readerrmsg      db  "Read error. INT 13H: 0x"
 readerrmsgln    equ $-readerrmsg
-nsecmsg         db  "N Sectors / track:   0x"
+nsecmsg         db  "Last sector:         0x"
 nsecmsgln       equ $-nsecmsg
+ncylmsg         db  "Last cylinder:       0x"
+ncylmsgln       equ $-ncylmsg
+nheadmsg        db  "Last head:           0x"
+nheadmsgln      equ $-nheadmsg
+drtypemsg       db  "Drive type:          0x"
+drtypemsgln     equ $-drtypemsg
 haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
 align 2
