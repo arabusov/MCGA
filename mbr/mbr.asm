@@ -198,10 +198,9 @@ clear:      mov         [bx-2], ax
             mov         cx, ax      ; Init values: cx = ax, others zero.
             mov         bx, 0
             mov         dx, 0
-            jmp         sub_head
 lba_chs:    cmp         cx, [maxsec]
             ja          sub_sec
-
+            jmp         result      ; If CX <= maxsec this is the result
 sub_sec:    sub         cx, [maxsec]
             inc         dx
             cmp         dx, [maxhead]
@@ -209,13 +208,22 @@ sub_sec:    sub         cx, [maxsec]
             jmp         lba_chs
 
 sub_head:   sub         dx, [maxhead]
-            dec         dx
+            dec         dx          ; because n of heads = maxhead+1
             inc         bx
-                                    ; Result: CX -- sector, DX -- head,
+            cmp         bx, [maxcyl]
+            ja          sub_cyl
+            jmp         lba_chs
+sub_cyl:    sub         bx, [maxcyl]
+            dec         bx          ; the same reason as for heads
+            jmp         lba_chs
+result:                             ; Result: CX -- sector, DX -- head,
                                     ; and BX -- cylinder.
-        
-        ; start to read BL sectors
-        pop dx
+            mov         ch, bl      ; Pack BX CX DX to BIOS CHS standard
+            shl         bh, 6
+            or          cl, bh      ; Now CX is ready
+            mov         ax, dx
+            pop         dx          ; Stack stores DL with drive number
+            mov         al, dh
 
                                     ; Finally, CL[0--5] is sector
                                     ; CH and CL[6--7] is cyl
