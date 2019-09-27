@@ -193,8 +193,8 @@ clear:      mov         [bx-2], ax
                                     ; Max head.
 
                                     ; Arithmetics for LBA -> CHS
-                                    ; AX = first LBA sector
-            mov         ax, 1+2*FATSIZE+ROOTSIZE
+                                    ; AX = first LBA sector+1
+            mov         ax, 1+2*FATSIZE+ROOTSIZE+1
             mov         cx, ax      ; Init values: cx = ax, others zero.
             mov         bx, 0
             mov         dx, 0
@@ -224,7 +224,7 @@ result:                             ; Result: CX -- sector, DX -- head,
             mov         ax, dx
             pop         dx          ; Stack stores DL with drive number
             mov         al, dh
-
+        
                                     ; Finally, CL[0--5] is sector
                                     ; CH and CL[6--7] is cyl
                                     ; DH is head
@@ -233,9 +233,9 @@ result:                             ; Result: CX -- sector, DX -- head,
         mov bx, BLIP ; relative address for the BL
         mov ah, 0x02
         mov al, BLNSEC;n sectors
-        mov ch, 0 ;cylinder
-        mov cl, 34
-        mov dh, 0 ;head
+       ; mov ch, 0 ;cylinder
+       ; mov cl, 34
+       ; mov dh, 0 ;head
                   ; dl is initialized
         int 0x13
 ;test error message
