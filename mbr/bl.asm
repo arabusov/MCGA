@@ -377,8 +377,8 @@ maxcyl          dw  0
 align 2
 stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
-fat1  equ stcke+2
-root    equ fat1+FATSIZE   
+fat1    equ stcke+2
+root    equ fat1+FATSIZE*NBYTEPSEC
 size    equ $-start
         times 512*BLNSEC-size db 0 ;empty sectors
 
