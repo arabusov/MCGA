@@ -228,15 +228,14 @@ result:                             ; Result: CX -- sector, DX -- head,
                                     ; Finally, CL[0--5] is sector
                                     ; CH and CL[6--7] is cyl
                                     ; DH is head
-        mov ax, BLCS
-        mov es, ax
-        mov bx, BLIP ; relative address for the BL
-        mov ah, 0x02
-        mov al, BLNSEC;n sectors
-       ; mov ch, 0 ;cylinder
-       ; mov cl, 34
-       ; mov dh, 0 ;head
-                  ; dl is initialized
+                    
+                                    ; Now we are ready to read sector by
+                                    ; sector.
+            mov         ax, BLCS
+            mov         es, ax
+            mov         bx, BLIP ; relative address for the BL
+            mov         ah, 0x02
+            mov       al, BLNSEC;n sectors
         int 0x13
 ;test error message
         ; Process INT 13h errors
