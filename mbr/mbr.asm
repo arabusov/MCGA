@@ -233,20 +233,24 @@ result:                             ; Result: CX -- sector, DX -- head,
                                     ; sector.
             mov         ax, BLCS
             mov         es, ax
-            mov         bx, BLIP ; relative address for the BL
+            mov         bx, BLIP    ; relative address for the BL
             mov         ah, 0x02
-            mov       al, BLNSEC;n sectors
-        int 0x13
-;test error message
-        ; Process INT 13h errors
-                    ;carry flag = 1 if error
-        jc  error
-        cmp al, BLNSEC ; al = number of actual sectors read
-        jne error
-        ; If there is no errors -- jump to boot loader code
-        jmp BLCS:BLIP; long jump to the BL
-halt:   hlt
-        jmp halt
+            mov         al, BLNSEC
+read_loop:  cmp         al, 0       ; WRONG FIXME
+            jz          bl_start
+            mov         [rmd_nsec], al
+                                    ; save AL
+            mov         al, BLNSEC
+            int         0x13
+                                    ; Process INT 13h errors
+                                    ;carry flag = 1 if error
+            jc          error
+            cmp         al, BLNSEC       ; al = number of actual sectors read
+            jne         error
+
+bl_start:   jmp         BLCS:BLIP   ; long jump to the BL
+halt:       hlt
+            jmp         halt
 
 error:
         ; translate ah to ascii
@@ -313,16 +317,18 @@ loo:    mov [bx], ax
         ret
 
 ; data
-mbrmsg: db  "MBR loaded from disc X"
+mbrmsg: db  "Disk X"
 disc_p  equ $-1
         db  "..."
 mbrln   equ $-mbrmsg
-errmsg: db  "Disc error. Code: 0xXX."
+errmsg: db  "READ ERR: 0xXX."
 errcod: equ $-3
 errln   equ $-errmsg
 maxsec:     dw      0
 maxcyl:     dw      0
 maxhead:    dw      0
+rmd_nsec    db      0
+curr_cx     dw      0
 size    equ $-start
         times 446-size db 0
 ;first partition
