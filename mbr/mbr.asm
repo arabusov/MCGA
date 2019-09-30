@@ -308,11 +308,11 @@ dec_head:                           ; Increase cylinder by one -- the most
                                     ; Now CX is number of cylinders
             inc         cx
 
-            mov         dh, cl
+            mov         dh, ch
             shl         dh, 6
             or          dh, 0x01    ; Now DH is future CL
             mov         [cx_tmp], dh
-            mov         [cx_tmp+1], ch
+            mov         [cx_tmp+1], cl
             xor         dh, dh      ; and head to 0, because this is the new
                                     ; cylinder.
             cmp         cx, [maxcyl]
