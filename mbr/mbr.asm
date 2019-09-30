@@ -390,7 +390,7 @@ loo:    mov [bx], ax
         ret
 
 ; data
-mbrmsg: db  "X"
+mbrmsg: db  "Use disk X"
 disc_p  equ $-1
         db  "..."
 mbrln   equ $-mbrmsg

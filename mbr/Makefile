@@ -1,19 +1,25 @@
-diskette=fda1200.img
-build: mbr bl fat12
+floppy_type=360
+diskette=fda${floppy_type}.img
+
+AS=nasm
+AFLAGS=-f bin -dFLOPPY_TYPE=${floppy_type}
+build: mbr.bin bl.bin fat12.bin floppy.bin 
 	cat mbr.bin > ${diskette}
 	cat fat12.bin >> ${diskette}
 	cat bl.bin >> ${diskette}
+	cat floppy.bin >> ${diskette}
 
-mbr:
-	nasm -f bin mbr.asm -o mbr.bin
-bl:
-	nasm -f bin bl.asm -o bl.bin
-fat12:
-	nasm -f bin fat12.asm -o fat12.bin
 
-run: build
-	qemu-system-i386 -drive format=raw,if=floppy,file=${diskette}
-pcem: build
+%.bin : %.asm
+	${AS} ${AFLAGS} $< -o $@
+
+run:
+	make clean
+	make floppy_type=1200
+	qemu-system-i386 -drive format=raw,if=floppy,file=fda1200.img
+pcem:
+	make clean
+	make floppy_type=360
 	pcem --config ibmpc_at_cga.cfg
 
 clean:
