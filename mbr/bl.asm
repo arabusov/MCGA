@@ -24,6 +24,7 @@ start:
         call    find1part 
         call    printpartinfo
         call    printdiscinfo
+        call    disc_test
         call    loadfat1
         call    loadroot
 
@@ -54,6 +55,7 @@ printdiscinfo:
         push    ax
         and     ax,0x3f; [5 -- 0] bits
         mov     [maxsec],al
+        mov     byte [maxsec+1], 0
         call    printalln
         mov     cx, ncylmsgln
         mov     bp, ncylmsg
@@ -77,6 +79,24 @@ printdiscinfo:
         popa
         ret
 
+disc_test:
+        pusha
+        mov     cx, 23
+        mov     bx, tmp_buf
+        mov     ax, 1+FATSIZE*2 + ROOTSIZE+BLNSEC
+        add     ax, 0x100
+        call    loadfromdisc
+disc_test_loop:
+        mov     al, [bx+1]
+        call    printal
+        mov     al, [bx]
+        call    printalln
+        add     bx, NBYTEPSEC
+        loop    disc_test_loop
+
+        popa
+        ret
+
 ;----------------------------------------------------------------------------;
 ;                               LBA -> CHS                                   ;
 ;                                                                            ;
@@ -92,11 +112,10 @@ printdiscinfo:
 ;----------------------------------------------------------------------------;
 
 lba2chs:
-        inc     ax
+        inc     al
                                              ; AX -- sector
         xor     dh, dh
         xor     cx, cx
-
 lba2chs_main_loop:
         cmp     ax, [maxsec]
         jna     lba2chs_return
@@ -434,7 +453,7 @@ drtypemsg       db  "Drive type:          0x"
 drtypemsgln     equ $-drtypemsg
 haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
-maxsec          db  0
+maxsec          dw  0
 maxhead         db  0
 maxcyl          dw  0
 align 2
@@ -442,5 +461,6 @@ stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
 fat1    equ stcke+2
 root    equ fat1+FATSIZE*NBYTEPSEC
+tmp_buf equ stcke+2
 size    equ $-start
         times NBYTEPSEC*BLNSEC-size db 0 ;empty sectors of the bootloader
