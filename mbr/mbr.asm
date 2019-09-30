@@ -240,40 +240,84 @@ result:                             ; Result: CX -- sector, DX -- head,
             mov         bx, BLIP    ; relative address for the BL
             mov         ah, 0x02
             mov         al, BLNSEC
+                                    ; Save CX
+            mov         [cx_tmp], cx
+
+                                    ; Loop for read the boot loader
+                                    ; starts here:
+
 read_loop:  cmp         al, 0       ; Read sectors one by one
                                     ; untill all are read.
             jz          bl_start
             mov         [rmd_nsec], al
-                                    ; save AL
-            mov         al, 1
+                                    ; save AL -- counter of 
+                                    ; reminded sectors to read,
+            mov         ax, 0x0201  ; and read only one sector.
+                                    ; Restore CX
+            mov         cx, [cx_tmp]
             int         0x13
                                     ; Process INT 13h errors
                                     ;carry flag = 1 if error
             jc          error
             mov         ah, ERR_NSECREAD
+                                    ; Prepare to print an error:
             cmp         al, 1       ; al = number of actual sectors read
-            jne         error
+            jne         error       ; and print error, if it happend
 
             mov         al, [rmd_nsec]
-            dec         al
+                                    ; Restore AL.
+                                    ; And as we read a sector:
+            dec         al          ; decrease AL by 1
+                                    ; and increase BX by the number of
+                                    ; bytes per one sector.
             add         bx, NBYTEPSEC
-            inc         cl
+            and         cl, 0x3f    ; Find only sector information in CX
+            inc         cl          ; and increase it by one
             cmp         cl, [maxsec]
-            ja          dec_sec
-            mov         ah, 0x02
-            jmp         read_loop
+            ja          dec_sec     ; If the sector number is above the
+                                    ; maximum, we must set n_sec to one
+                                    ; and increase the number of heads
+                                    ; by one,
+            and         word [cx_tmp], 0x00a0
+            or          [cx_tmp], cx
+                                    ; So, CX is saved to cx_tmp
+            jmp         read_loop   ; otherwise just read the next sector
+                                    ; of the track.
 
-dec_sec:    mov         cl, 1
+dec_sec:    mov         cl, 1       ; Set sector number to 1
+            and         word [cx_tmp], 0x00a0
+            or          [cx_tmp], cl
+                                    ; and two high bits of CL.
+            mov         cx, [cx_tmp]
+                                    ; CH is immutable during this operations.
             inc         dh
             cmp         dh, [maxhead]
+                                    ; Check if the head number is above the
+                                    ; maximum head available
             ja          dec_head
             jmp         read_loop
 
-dec_head:   xor         dh, dh
-            inc         ch
-            cmp         ch, [maxcyl]
+dec_head:                           ; Increase cylinder by one -- the most
+                                    ; difficult part.
+                                    ; First, form the number of cylinder
+                                    ; in the cx_tmp
+            mov         dh, ch      ; Temporary use DH to store CH
+            shr         cl, 6
+            mov         ch, cl
+            mov         cl, dh
+                                    ; Now CX is number of cylinders
+            inc         cx
+
+            mov         dh, cl
+            shl         dh, 6
+            or          dh, 0x01    ; Now DH is future CL
+            mov         [cx_tmp], dh
+            mov         [cx_tmp+1], ch
+            xor         dh, dh      ; and head to 0, because this is the new
+                                    ; cylinder.
+            cmp         cx, [maxcyl]
             jnz         read_loop
-            mov         ah, 0xcd
+            mov         ah, ERR_CYL_OUT_OF_RANGE
             jmp         error
 
 
@@ -357,7 +401,7 @@ maxsec:     dw      0
 maxcyl:     dw      0
 maxhead:    db      0
 rmd_nsec    db      0
-curr_cx     dw      0
+cx_tmp     dw      0
 size    equ $-start
         times 510-size db 0
 bios_magic: dw      0xaa55
