@@ -381,4 +381,5 @@ fat1    equ stcke+2
 root    equ fat1+FATSIZE*NBYTEPSEC
 size    equ $-start
         times 512*BLNSEC-size db 0 ;empty sectors
-
+; temporary emulate 360k diskette:
+        times 360*1024-(1+ROOTSIZE+2*FATSIZE+BLNSEC)*512 db 0
