@@ -6,6 +6,7 @@
 %include "bl.inc"
 %include "fat12.inc"
 bits 16                             ; i8086 16-bits REAL mode, actually.
+CPU  286
 section .text                       ; All code and data are
                                     ; in the single section.
 ;----------------------------------------------------------------------------;
@@ -67,9 +68,10 @@ fillsize    equ         $-start     ; Size of the FAT-12 boot sector head,
 ;----------------------------------------------------------------------------;
 
 bootstrap:
-                                    ; Here we are going to use BIOS stack
-                                    ; settings, hope it will not cause a bug.
-                                    ; So we do nothing with SS:SP registers.
+            cli                     ; No interrupts till the work with disc.
+            xor         ax, ax
+            mov         ss, ax
+            mov         sp, 0x7c00  ; Set stack to the MBR image in memory.
             push        dx          ; Save disc info to the stack.
 
             mov         ax, 0x0b800 ; Put the standard screen address into
@@ -169,10 +171,14 @@ clear:      mov         [bx-2], ax
             mov         es,bx       ; ES:DI must be 0000:0000
             mov         di,0x00     ; for some BIOS it's necessary
                                     ; according Wikipedia.
+            sti
             int         0x13
 
                                     ; Check for errors.
-            jc          error       ; AH has the error code.
+            jnc         no_error    ; AH has the error code.
+            mov         ah, 0xbd
+            jmp         error
+no_error:
             cmp         cx, 0x00    ; Check if BIOS doesn't understand
                                     ; the drive, max cyl = max sec = 0.
             mov         ah, 0xad    ; This is my error code.
@@ -187,9 +193,7 @@ clear:      mov         [bx-2], ax
             shr         ah, 6       ; 1100 0000 -> 0000 0011
             mov         al, ch      ; AX = MAXCYL
             mov         [maxcyl], ax
-            mov         dl, dh
-            mov         dh, 0
-            mov         [maxhead], dx
+            mov         [maxhead], dh
                                     ; Max head.
 
                                     ; Arithmetics for LBA -> CHS
@@ -197,18 +201,18 @@ clear:      mov         [bx-2], ax
             mov         ax, 1+2*FATSIZE+ROOTSIZE+1
             mov         cx, ax      ; Init values: cx = ax, others zero.
             mov         bx, 0
-            mov         dx, 0
+            mov         dh, 0
 lba_chs:    cmp         cx, [maxsec]
             ja          sub_sec
             jmp         result      ; If CX <= maxsec this is the result
 sub_sec:    sub         cx, [maxsec]
-            inc         dx
-            cmp         dx, [maxhead]
+            inc         dh
+            cmp         dh, [maxhead]
             ja          sub_head
             jmp         lba_chs
 
-sub_head:   sub         dx, [maxhead]
-            dec         dx          ; because n of heads = maxhead+1
+sub_head:   sub         dh, [maxhead]
+            dec         dh          ; because n of heads = maxhead+1
             inc         bx
             cmp         bx, [maxcyl]
             ja          sub_cyl
@@ -223,7 +227,7 @@ result:                             ; Result: CX -- sector, DX -- head,
             or          cl, bh      ; Now CX is ready
             mov         ax, dx
             pop         dx          ; Stack stores DL with drive number
-            mov         al, dh
+            mov         dh, ah
         
                                     ; Finally, CL[0--5] is sector
                                     ; CH and CL[6--7] is cyl
@@ -237,16 +241,43 @@ result:                             ; Result: CX -- sector, DX -- head,
             mov         ah, 0x02
             mov         al, BLNSEC
 read_loop:  cmp         al, 0       ; WRONG FIXME
-            jz          bl_start
+            jz          done
+            jmp         next_move
+done:
+            jmp         bl_start
+next_move:
             mov         [rmd_nsec], al
                                     ; save AL
-            mov         al, BLNSEC
+            mov         al, 1
             int         0x13
                                     ; Process INT 13h errors
                                     ;carry flag = 1 if error
             jc          error
-            cmp         al, BLNSEC       ; al = number of actual sectors read
+            cmp         al, 1       ; al = number of actual sectors read
             jne         error
+
+            mov         al, [rmd_nsec]
+            dec         al
+            add         bx, NBYTEPSEC
+            inc         cl
+            cmp         cl, [maxsec]
+            ja          dec_sec
+            mov         ah, 0x02
+            jmp         read_loop
+
+dec_sec:    mov         cl, 1
+            inc         dh
+            cmp         dh, [maxhead]
+            ja          dec_head
+            jmp         read_loop
+
+dec_head:   xor         dh, dh
+            inc         ch
+            cmp         ch, [maxcyl]
+            jnz         read_loop
+            mov         ah, 0xcd
+            jmp         error
+
 
 bl_start:   jmp         BLCS:BLIP   ; long jump to the BL
 halt:       hlt
@@ -317,30 +348,19 @@ loo:    mov [bx], ax
         ret
 
 ; data
-mbrmsg: db  "Disk X"
+mbrmsg: db  "X"
 disc_p  equ $-1
         db  "..."
 mbrln   equ $-mbrmsg
-errmsg: db  "READ ERR: 0xXX."
+errmsg: db  "ERR: 0xXX."
 errcod: equ $-3
 errln   equ $-errmsg
 maxsec:     dw      0
 maxcyl:     dw      0
-maxhead:    dw      0
+maxhead:    db      0
 rmd_nsec    db      0
 curr_cx     dw      0
 size    equ $-start
-        times 446-size db 0
-;first partition
-       ; times 16 db 0
-        db  0x80
-        db  PART1HEAD
-        dw  PART1CYLSEC
-        db  0x01 ;type
-        db  PART1ENDHEAD
-        dw  PART1ENDCYLSEC
-        times 4 db  0x00
-        times 4 db  0x00
-        times 16*3 db 0
+        times 510-size db 0
 bios_magic: dw      0xaa55
 

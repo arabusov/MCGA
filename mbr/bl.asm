@@ -1,4 +1,5 @@
 bits 16
+cpu  286
 section .text
 %include "bl.inc"
 org BLIP
@@ -382,4 +383,4 @@ root    equ fat1+FATSIZE*NBYTEPSEC
 size    equ $-start
         times 512*BLNSEC-size db 0 ;empty sectors
 ; temporary emulate 360k diskette:
-        times 360*1024-(1+ROOTSIZE+2*FATSIZE+BLNSEC)*512 db 0
+        times 1200*1024-(1+ROOTSIZE+2*FATSIZE+BLNSEC)*512 db 0
