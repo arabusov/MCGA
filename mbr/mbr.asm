@@ -3,6 +3,7 @@
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 
+%include "mbr.inc"
 %include "bl.inc"
 %include "fat12.inc"
 bits 16                             ; i8086 16-bits REAL mode, actually.
@@ -175,13 +176,12 @@ clear:      mov         [bx-2], ax
             int         0x13
 
                                     ; Check for errors.
-            jnc         no_error    ; AH has the error code.
-            mov         ah, 0xbd
-            jmp         error
-no_error:
+            jc          error    ; AH has the error code.
+            
             cmp         cx, 0x00    ; Check if BIOS doesn't understand
                                     ; the drive, max cyl = max sec = 0.
-            mov         ah, 0xad    ; This is my error code.
+            mov         ah, ERR_BIOS_NOT_SET
+                                    ; This is my error code.
             jz          error       ; Also jump to error.
 
                                     ; Save int13h8f result
@@ -240,12 +240,9 @@ result:                             ; Result: CX -- sector, DX -- head,
             mov         bx, BLIP    ; relative address for the BL
             mov         ah, 0x02
             mov         al, BLNSEC
-read_loop:  cmp         al, 0       ; WRONG FIXME
-            jz          done
-            jmp         next_move
-done:
-            jmp         bl_start
-next_move:
+read_loop:  cmp         al, 0       ; Read sectors one by one
+                                    ; untill all are read.
+            jz          bl_start
             mov         [rmd_nsec], al
                                     ; save AL
             mov         al, 1
@@ -253,6 +250,7 @@ next_move:
                                     ; Process INT 13h errors
                                     ;carry flag = 1 if error
             jc          error
+            mov         ah, ERR_NSECREAD
             cmp         al, 1       ; al = number of actual sectors read
             jne         error
 
