@@ -33,7 +33,7 @@ section .text                       ; All code and data are
 ;----------------------------------------------------------------------------;
 
 %define     BTSTRPTR    30          ; First 30 bytes are FAT-12 description.
-            org         7c00h       ; BIOS standard memory address
+            org         0x7c00      ; BIOS standard memory address
                                     ; for a boot loader.
 start:      jmp         bootstrap   ; Ommit first 30 bytes.
             nop                     ; Traditional No operation.
@@ -72,6 +72,7 @@ bootstrap:
             cli                     ; No interrupts till the work with disc.
             xor         ax, ax
             mov         ss, ax
+            mov         es, ax      ; Init extra data segment
             mov         sp, 0x7c00  ; Set stack to the MBR image in memory.
             push        dx          ; Save disc info to the stack.
 
@@ -82,8 +83,6 @@ bootstrap:
             mov         ds, ax      ; Each symbol takes two bytes, one
                                     ; for the symbol and another for
                                     ; an attribute.
-            mov         ax, 0
-            mov         es, ax      ; init data segment
 
 ;----------------------------------------------------------------------------;
 ;                           Print on the screen                              ;
@@ -107,7 +106,7 @@ bootstrap:
             jmp         save_l      ; Jump to the common code for all types.
 
                                     ; Fixed disc type case.
-disc_c:     and         dl, 0x7f    ; Remove the flag.
+disc_c:     and         dl, 0x7f    ; Set 8th bit of DL to zero.
             add         dl, 'C'     ; Disk C -- first fixed-type disc.
 
                                     ; Here I'm using a trick to show disc
@@ -322,87 +321,117 @@ dec_head:                           ; Increase cylinder by one -- the most
 
 
 bl_start:   jmp         BLCS:BLIP   ; long jump to the BL
-halt:       hlt
+halt:       hlt                     ; Infinite stop
             jmp         halt
 
+;----------------------------------------------------------------------------;
+;                               Subroutines                                  ;
+;                                                                            ;
+;    1. ERROR                                                                ;
+;    2. PRINT                                                                ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+;----------------------------------------------------------------------------;
+;                           Error subroutine                                 ;
+;                                                                            ;
+; Doesn't return back to the code, prints an error message with an error     ;
+; code and falls into an infinite loop of halt instruction.                  ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
 error:
-        ; translate ah to ascii
-        mov bx,0
-        mov es,bx
-        mov dh, ah
-        and ah, 0x0f
-        cmp ah, 0x0a
-        jae adda
-        ; add '0'
-        add ah, '0'
-        jmp contin
-        ; add 'A'
-adda:   add ah, 'A'
-        sub ah, 0x0a
+                                    ; Translate AH to ascii
+            mov         bx,0
+            mov         es,bx
+            mov         dh, ah
+            and         ah, 0x0f
+            cmp         ah, 0x0a
+            jae         adda
+            add         ah, '0'     ; add '0'
+            jmp         contin
+                                    ; add 'A'
+adda:       add         ah, 'A'
+            sub         ah, 0x0a
 
 contin:
-        shr dh, 4
-        cmp dh, 0x0a
-        jae adda2
-        ; add '0'
-        add dh, '0'
-        jmp contin2
-adda2:  add dh, 'A'
-        sub dh, 0x0a
+            shr         dh, 4       ; Second character
+            cmp         dh, 0x0a
+            jae         adda2
+            add         dh, '0'
+            jmp         contin2
+adda2:      add         dh, 'A'
+            sub         dh, 0x0a
 contin2:
-        mov al, dh
-        mov [es:errcod],ax
-        mov bx, 80*2 ; next line relative to the first msg
-        mov cx, errln
-        mov bp, errmsg
-        call    print
-        jmp halt
-;subroutines
+            mov         al, dh
+            mov         [es:errcod],ax
+                                    ; Change an error code to the obtained
+                                    ; value.
+            mov         bx, 80*2    ; next line relative to the first msg.
+            mov         cx, errln
+            mov         bp, errmsg
+            call        print
+            jmp         halt        ; Infinite halt.
+
+;----------------------------------------------------------------------------;
+;                               Print subroutine                             ;
+;                                                                            ;
+; Prints a message from memory.                                              ;
+; Arguments:                                                                 ;
+; BP --- pointer to the message,                                             ;
+; CX --- length of the message.                                              ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
 print:  
-        push es
-        mov ax,0
-        mov es,ax
-        mov al, [es:bp]
-        mov ah, 02h
-loo:    mov [bx], ax
-        add bx, 2
-        inc bp
-        mov al, [es:bp]
-        loop loo
-        shr bx,1
+            push        es
+            mov         ax,0
+            mov         es,ax
+            mov         al, [es:bp]
+            mov         ah, 0x02
+loo:        mov         [bx], ax
+            add         bx, 2
+            inc         bp
+            mov         al, [es:bp]
+            loop        loo
+            shr         bx,1
+                                    ; Move cursor                                    
+            mov         dx, 0x03d4
+            mov         al, 0x0f
+            out         dx, al
 
-        mov dx, 0x03d4
-        mov al, 0x0f
-        out dx, al
+            inc         dl
+            mov         al, bl
+            out         dx, al
 
-        inc dl
-        mov al, bl
-        out dx, al
+            dec         dl
+            mov         al, 0x0e
+            out         dx, al
 
-        dec dl
-        mov al, 0x0e
-        out dx, al
+            inc         dl
+            mov         al, bh
+            out         dx, al
+            pop         es
+            ret
 
-        inc dl
-        mov al, bh
-        out dx, al
-        pop es
-        ret
+;-----------------------------------------------------------------------------;
+;                      Data within the .text section                          ;
+;                                                                             ;
+;-----------------------------------------------------------------------------;
 
-; data
-mbrmsg: db  "Use disk X"
-disc_p  equ $-1
-        db  "..."
-mbrln   equ $-mbrmsg
-errmsg: db  "ERR: 0xXX."
-errcod: equ $-3
-errln   equ $-errmsg
-maxsec:     dw      0
-maxcyl:     dw      0
-maxhead:    db      0
-rmd_nsec    db      0
-cx_tmp     dw      0
-size    equ $-start
-        times 510-size db 0
-bios_magic: dw      0xaa55
+mbrmsg:     db          "Use disk X"
+disc_p      equ         $-1
+            db          "..."
+mbrln       equ         $-mbrmsg
+errmsg:     db          "ERR: 0xXX."
+errcod:     equ         $-3
+errln       equ         $-errmsg
+maxsec:     dw          0
+maxcyl:     dw          0
+maxhead:    db          0
+rmd_nsec:   db          0
+cx_tmp:     dw          0
+size        equ         $-start
+            times       510-size        db 0
+bios_magic: dw          0xaa55
 

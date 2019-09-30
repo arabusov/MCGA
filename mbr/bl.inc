@@ -28,4 +28,5 @@
     ; geometry: 512 bytes x 18 sectors x 80 cylinders x 2 heads
     %define PART1ENDHEAD 0x01
     %define PART1ENDCYLSEC 18+78*256
+    %define BL_ERR_CYL_OUT_OF_RANGE 0xca
 %endif

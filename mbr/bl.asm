@@ -77,19 +77,72 @@ printdiscinfo:
         popa
         ret
 
+;----------------------------------------------------------------------------;
+;                               LBA -> CHS                                   ;
+;                                                                            ;
+; Arguments:                                                                 ;
+;     1. AX --- LBA address.                                                 ;
+;     2. maxsec, maxhead, and maxcyl are initialized.                        ;
+; Result:                                                                    ;
+;     1. CX --- Sector and Cylinder in BIOS format                           ;
+;         [15 -- cyl [7-0] -- 8 | 7 -- cyl [8--9] -- 6 5 -- sec [5--0] -- 0] ;
+;     2. DH --- Head.                                                        ;
+;     3. AX --- error code.                                                  ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+lba2chs:
+        inc     ax
+                                             ; AX -- sector
+        xor     dh, dh
+        xor     cx, cx
+
+lba2chs_main_loop:
+        cmp     ax, [maxsec]
+        jna     lba2chs_return
+
+        sub     ax, [maxsec]
+        inc     dh
+
+        cmp     dh, [maxhead]
+        jna     lba2chs_main_loop
+
+        sub     dh, [maxhead]
+        dec     dh
+        inc     cx
+
+        cmp     cx, [maxcyl]
+        jna     lba2chs_main_loop
+
+                                            ; CX > maxcyl. Error
+        mov     al, 0x01                    ; Error flag
+        mov     ah, BL_ERR_CYL_OUT_OF_RANGE
+        ret
+
+lba2chs_return:
+        push    bx
+        mov     bx, cx
+        mov     cx, ax
+        mov     ch, bl
+        shl     bh, 6
+        or      cl, bh
+        pop     bx
+        xor     ax, ax
+        ret
+
 loadfat1:
         pusha
         mov     bx,fat1
-        mov     cx,1
-        mov     al,FATSIZE
+        mov     ax,1
+        mov     cx,FATSIZE
         call    loadfromdisc
         popa
         ret
 loadroot:
         pusha
         mov     bx,root
-        mov     cx,1+2*FATSIZE
-        mov     al,ROOTSIZE
+        mov     ax,1+2*FATSIZE
+        mov     cx,ROOTSIZE
         call    loadfromdisc
         popa
         ret
@@ -101,14 +154,23 @@ loadfromdisc:
         mov     dx, BLCS
         mov     es,dx
         mov     dl,[disc]
-        mov     ah,0x02
+read_loop:
+        push    cx
         push    ax
+        call    lba2chs
+        cmp     al, 0
+        jnz     read_error
+        mov     ax, 0x0201
         int     0x13
-        pop     bx
+
         jc      read_error
-        cmp     al,bl
+        cmp     al,1
         jne     read_error
-        ; everything is fine: continue
+        pop     ax
+        inc     ax
+        add     bx, NBYTEPSEC
+        pop     cx
+        loop    read_loop
         jmp     readexit
 
 read_error:
@@ -381,4 +443,4 @@ stcke:  equ $
 fat1    equ stcke+2
 root    equ fat1+FATSIZE*NBYTEPSEC
 size    equ $-start
-        times 512*BLNSEC-size db 0 ;empty sectors of the bootloader
+        times NBYTEPSEC*BLNSEC-size db 0 ;empty sectors of the bootloader
