@@ -3,12 +3,9 @@ cpu  286
 section .text
 %include "bl.inc"
 org BLIP
-start:  
+start: 
         mov ax, BLCS
-        mov ds, ax ;ds==cs
-        mov ax, BLCS
-        mov es, ax ;es==cs
-        mov ax, BLCS
+        mov ds, ax
         mov ss, ax
         mov sp, stcke
         
@@ -16,17 +13,34 @@ start:
         mov [disc],dl
 
         mov bx, SCRNCL;newline
-        mov [es:crsps], bx
+        mov [crsps], bx
         mov cx, blln
         mov bp, blmsg
         call println
+        mov     cx, csregmsgln
+        mov     bp, csregmsg
+        call    print
+        mov     bx, cs
+        mov     al, bh
+        call    printal
+        mov     al, bl
+        call    printal
+        mov     cx, ipregmsgln
+        mov     bp, ipregmsg
+        call    print
+        mov     bx, start
+get_ip:
+        mov     al, bh
+        call    printal
+        mov     al, bl
+        call    printalln
 
         call    find1part 
         call    printpartinfo
         call    printdiscinfo
         call    disc_test
-        call    loadfat1
-        call    loadroot
+        ;call    loadfat1
+        ;call    loadroot
 
         mov     bp,haltmsg
         mov     cx,haltmsgln
@@ -81,7 +95,7 @@ printdiscinfo:
 
 disc_test:
         pusha
-        mov     cx, 23
+        mov     cx, 12
         mov     bx, tmp_buf
         mov     ax, 1+FATSIZE*2 + ROOTSIZE+BLNSEC
         add     ax, 0x100
@@ -245,7 +259,7 @@ printalln:
         ret
 println:
         pusha
-        mov bx, [es:crsps]
+        mov bx, [crsps]
         call    mvcurs
         shl bx,1
         call    print
@@ -254,7 +268,7 @@ println:
         ret
 newline:
         pusha
-        mov ax, [es:crsps]
+        mov ax, [crsps]
         mov bl,SCRNCL
         div bl
         cmp al, SCRNRW
@@ -414,6 +428,7 @@ clearln:
         ret
 
 find1part:
+        pusha
         push    ds
 
         mov     ax,0x07c0 ;yes, this is the mbr prgr
@@ -425,6 +440,7 @@ find1part:
         mov     dh,[bx+1]; head
         mov     cx,[bx+2];cyl/sector
         pop     ds
+        popa
         ret
 
 
@@ -453,6 +469,10 @@ drtypemsg       db  "Drive type:          0x"
 drtypemsgln     equ $-drtypemsg
 haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
+csregmsg        db  "CS : 0x"
+csregmsgln      equ $-csregmsg
+ipregmsg        db  ", IP : 0x"
+ipregmsgln      equ $-ipregmsg
 maxsec          dw  0
 maxhead         db  0
 maxcyl          dw  0

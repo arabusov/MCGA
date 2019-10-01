@@ -1,7 +1,7 @@
 %include "fat12.inc"
 %include "bl.inc"
 ;FAT1
-fat1:       db      0xf0, 0xff, 0xff
+fat1:       db      FAT_ID, 0xff, 0xff
 actual_fat_size equ $ - fat1
         times   NBYTEPSEC*FATSIZE-actual_fat_size db 0
 ;FAT2

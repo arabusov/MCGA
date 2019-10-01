@@ -1,11 +1,11 @@
 %ifndef BL_INC
     %define BL_INC
-    ; boot loader physical addr: 0x01100
+    ; boot loader physical addr: 
     ; boot loader size: n sectors
     ; boot loader ip
     %define BLIP    0x0100      
     ; boot loader cs
-    %define BLCS    0x0100 
+    %define BLCS    0x1000
     ; maximum 10 sectors (512 bytes each)
     %include "fat12.inc"
     %define BLNSEC  10

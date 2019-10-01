@@ -70,12 +70,11 @@ fillsize    equ         $-start     ; Size of the FAT-12 boot sector head,
 ;----------------------------------------------------------------------------;
 
 bootstrap:
-            cli                     ; No interrupts till the work with disc.
-            mov         ax, cs
+            mov         ax, 0
             mov         ss, ax
             mov         ds, ax
             mov         es, ax      ; Init extra data segment
-            mov         sp, 0x7c00  ; Set stack to the MBR image in memory.
+            mov         sp, 0x7c00+1024  ; Set stack to the MBR image in memory.
             push        dx          ; Save disc info to the stack.
 
 ;----------------------------------------------------------------------------;
@@ -107,7 +106,7 @@ disc_c:     and         dl, 0x7f    ; Set 8th bit of DL to zero.
                                     ; letter: in the hello-message line
                                     ; I've marked one character for just
                                     ; one letter -- this disc letter.
-save_l:     mov         [es:disc_p],dl
+save_l:     mov         [disc_p],dl
 
                                     ; Clear screen code.
                                     ; Initialize BX with the pointer to the
@@ -115,7 +114,6 @@ save_l:     mov         [es:disc_p],dl
                                     ; word with an empty symbol and nonempty
                                     ; attribute (02 means green on black).
             mov         bx, 80*25*2+2
-            push        ds
 
             mov         ax, 0x0b800 ; Put the standard screen address into
                                     ; DS. I hope this program runs with a 
@@ -128,7 +126,6 @@ save_l:     mov         [es:disc_p],dl
 clear:      mov         [bx-2], ax
             sub         bx, 2
             jnz         clear       ; Loop for until BX is zero.
-            pop         ds
                                     
                                     ; Print the first message on the screen.
                                     ; Arguments: BX is the pointer to the
@@ -175,11 +172,10 @@ clear:      mov         [bx-2], ax
             mov         es, bx      ; ES:DI must be 0000:0000
             mov         di, 0x00    ; for some BIOS it's necessary
                                     ; according Wikipedia.
-            sti
             int         0x13
 
                                     ; Check for errors.
-            jc          error    ; AH has the error code.
+            jc          error       ; AH has the error code.
             
             cmp         cx, 0x00    ; Check if BIOS doesn't understand
                                     ; the drive, max cyl = max sec = 0.
@@ -188,26 +184,27 @@ clear:      mov         [bx-2], ax
             jz          error       ; Also jump to error.
 
                                     ; Save int13h8f result
+            mov         ax, 0
+            mov         ds, ax
             mov         ax, cx
-            and         ax, 0x003f  ; 0000 0000 0011 1111
+            and         cx, 0x003f  ; 0000 0000 0011 1111
                                     ; sector
-            mov         [maxsec], ax
-            mov         ah, cl
-            shr         ah, 6       ; 1100 0000 -> 0000 0011
-            mov         al, ch      ; AX = MAXCYL
-            mov         [maxcyl], ax
+            mov         [maxsec], cx
+            shr         al, 6       ; 1100 0000 -> 0000 0011
+            mov         ch, al
+            mov         cl, ah      ; AX = MAXCYL
+            mov         [maxcyl], cx
             mov         [maxhead], dh
                                     ; Max head.
 
                                     ; Arithmetics for LBA -> CHS
                                     ; AX = first LBA sector+1
-            mov         ax, 1+2*FATSIZE+ROOTSIZE+1
-            mov         cx, ax      ; Init values: cx = ax, others zero.
+            mov         cx, 1+2*FATSIZE+ROOTSIZE+1
             mov         bx, 0
             mov         dh, 0
 lba_chs:    cmp         cx, [maxsec]
-            ja          sub_sec
-            jmp         result      ; If CX <= maxsec this is the result
+            jna         result      ; If CX <= maxsec this is the result
+
 sub_sec:    sub         cx, [maxsec]
             inc         dh
             cmp         dh, [maxhead]
@@ -322,9 +319,8 @@ dec_head:                           ; Increase cylinder by one -- the most
             jnz         read_loop
             mov         ah, ERR_CYL_OUT_OF_RANGE
             jmp         error
-
-
-bl_start:   jmp         BLCS:BLIP   ; long jump to the BL
+bl_start:
+            jmp         BLCS:BLIP   ; long jump to the BL
 halt:       hlt                     ; Infinite stop
             jmp         halt
 
@@ -346,8 +342,8 @@ halt:       hlt                     ; Infinite stop
 
 error:
                                     ; Translate AH to ascii
-            mov         bx,0
-            mov         es,bx
+            mov         bx,0x00
+            mov         ds,bx
             mov         dh, ah
             and         ah, 0x0f
             cmp         ah, 0x0a
@@ -368,7 +364,7 @@ adda2:      add         dh, 'A'
             sub         dh, 0x0a
 contin2:
             mov         al, dh
-            mov         [es:errcod],ax
+            mov         [errcod],ax
                                     ; Change an error code to the obtained
                                     ; value.
             mov         bx, 80*2    ; next line relative to the first msg.
@@ -388,8 +384,6 @@ contin2:
 ;----------------------------------------------------------------------------;
 
 print:  
-            push        es
-            push        ds
             mov         ax, 0xb800
             mov         ds, ax
             xor         ax, ax
@@ -418,8 +412,6 @@ loo:        mov         [bx], ax
             inc         dl
             mov         al, bh
             out         dx, al
-            pop         ds
-            pop         es
             ret
 
 ;-----------------------------------------------------------------------------;
@@ -427,9 +419,9 @@ loo:        mov         [bx], ax
 ;                                                                             ;
 ;-----------------------------------------------------------------------------;
 
-mbrmsg:     db          "Use disk X"
+mbrmsg:     db          "Disk X"
 disc_p      equ         $-1
-            db          "..."
+            db          "."
 mbrln       equ         $-mbrmsg
 errmsg:     db          "ERR: 0xXX."
 errcod:     equ         $-3
