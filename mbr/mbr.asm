@@ -74,7 +74,7 @@ bootstrap:
             mov         ss, ax
             mov         ds, ax
             mov         es, ax      ; Init extra data segment
-            mov         sp, 0x7c00+1024  ; Set stack to the MBR image in memory.
+            mov         sp, 0x7c00-2  ; Set stack to the MBR image in memory.
             push        dx          ; Save disc info to the stack.
 
 ;----------------------------------------------------------------------------;
@@ -423,7 +423,7 @@ loo:        mov         [bx], ax
 ;                                                                             ;
 ;-----------------------------------------------------------------------------;
 
-mbrmsg:     db          "D. X"
+mbrmsg:     db          "Disk X"
 disc_p      equ         $-1
             db          "."
 mbrln       equ         $-mbrmsg
