@@ -8,24 +8,32 @@
         %define FAT_ID 0xf9
         %define NHEADS      2
         %define NCYLS       80
-        %define NSECS       15
+        %define NSECPTRACK       15
         %define ROOTSIZE    14
+        %define NROOTRECS   224
+        %define NTOTALSEC   2400
     %elif FLOPPY_TYPE==1440
         %define FAT_ID 0xf0
         %define NHEADS      2
         %define NCYLS       80
-        %define NSECS       18
+        %define NSECPTRACK       18
         %define ROOTSIZE    14
+        %define NROOTRECS   224
+        %define NTOTALSEC   2880
     %elif FLOPPY_TYPE==360
         %define FAT_ID 0xfd
         %define NHEADS      2
         %define NCYLS       40
-        %define NSECS       9
+        %define NSECPTRACK  9
         %define ROOTSIZE    7
+        %define NROOTRECS   112
+        %define NTOTALSEC   720
     %endif
     ; fat1 begin
     %define FATSIZE     9
     %define NBYTEPSEC   512
     %define NSECPCLU    1
     %define NHIDDSEC    0
+    %define NRESSEC     1
+    %define NFATCOPYS   2
 %endif

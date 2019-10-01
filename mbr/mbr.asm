@@ -6,6 +6,7 @@
 %include "mbr.inc"
 %include "bl.inc"
 %include "fat12.inc"
+%include "floppy.inc"
 bits 16                             ; i8086 16-bits REAL mode, actually.
 CPU  286
 section .text                       ; All code and data are
@@ -40,16 +41,16 @@ start:      jmp         bootstrap   ; Ommit first 30 bytes.
             db          "ATIX001"   ; OEM name.
             dw          NBYTEPSEC   ; Number of bytes per sector.
             db          NSECPCLU    ; Number of sectors per cluster.
-            dw          1           ; Number of reserved sectors.
-            db          2           ; Number of FAT copies.
-            dw          224         ; Number records (?) of the 
+            dw          NRESSEC     ; Number of reserved sectors.
+            db          NFATCOPYS   ; Number of FAT copies.
+            dw          NROOTRECS   ; Number records (?) of the 
                                     ; ROOT directory.
-            dw          2880        ; Total number of sectors.
-            db          0xf0        ; Media descriptor, here is floppy.
+            dw          NTOTALSEC   ; Total number of sectors.
+            db          MEDIADESC   ; Media descriptor, here is floppy.
             dw          FATSIZE     ; Number of FAT sectors.
-            dw          NSECS       ; Number of sectors per track.
+            dw          NSECPTRACK  ; Number of sectors per track.
             dw          NHEADS      ; Number of heads.
-            dw          0           ; Number of hidden sectors.
+            dw          NHIDDSEC    ; Number of hidden sectors.
 fillsize    equ         $-start     ; Size of the FAT-12 boot sector head,
                                     ; should be 30.
 
@@ -70,19 +71,12 @@ fillsize    equ         $-start     ; Size of the FAT-12 boot sector head,
 
 bootstrap:
             cli                     ; No interrupts till the work with disc.
-            xor         ax, ax
+            mov         ax, cs
             mov         ss, ax
+            mov         ds, ax
             mov         es, ax      ; Init extra data segment
             mov         sp, 0x7c00  ; Set stack to the MBR image in memory.
             push        dx          ; Save disc info to the stack.
-
-            mov         ax, 0x0b800 ; Put the standard screen address into
-                                    ; DS. I hope this program runs with a 
-                                    ; colour display in text mode with
-                                    ; 80x25 symbols per a page.
-            mov         ds, ax      ; Each symbol takes two bytes, one
-                                    ; for the symbol and another for
-                                    ; an attribute.
 
 ;----------------------------------------------------------------------------;
 ;                           Print on the screen                              ;
@@ -121,10 +115,20 @@ save_l:     mov         [es:disc_p],dl
                                     ; word with an empty symbol and nonempty
                                     ; attribute (02 means green on black).
             mov         bx, 80*25*2+2
+            push        ds
+
+            mov         ax, 0x0b800 ; Put the standard screen address into
+                                    ; DS. I hope this program runs with a 
+                                    ; colour display in text mode with
+                                    ; 80x25 symbols per a page.
+            mov         ds, ax      ; Each symbol takes two bytes, one
+                                    ; for the symbol and another for
+                                    ; an attribute.
             mov         ax, 0x0200  ; 0x02 is the attribute
 clear:      mov         [bx-2], ax
             sub         bx, 2
             jnz         clear       ; Loop for until BX is zero.
+            pop         ds
                                     
                                     ; Print the first message on the screen.
                                     ; Arguments: BX is the pointer to the
@@ -167,9 +171,9 @@ clear:      mov         [bx-2], ax
             pop         dx          ; Restore DL.
             push        dx          ; And save again for INT 13H 0x02 (read).
             mov         ah, 0x08    ; AH is always the procedure number.
-            mov         bx, 0x00
-            mov         es,bx       ; ES:DI must be 0000:0000
-            mov         di,0x00     ; for some BIOS it's necessary
+            xor         bx, bx
+            mov         es, bx      ; ES:DI must be 0000:0000
+            mov         di, 0x00    ; for some BIOS it's necessary
                                     ; according Wikipedia.
             sti
             int         0x13
@@ -385,7 +389,10 @@ contin2:
 
 print:  
             push        es
-            mov         ax,0
+            push        ds
+            mov         ax, 0xb800
+            mov         ds, ax
+            xor         ax, ax
             mov         es,ax
             mov         al, [es:bp]
             mov         ah, 0x02
@@ -411,6 +418,7 @@ loo:        mov         [bx], ax
             inc         dl
             mov         al, bh
             out         dx, al
+            pop         ds
             pop         es
             ret
 
