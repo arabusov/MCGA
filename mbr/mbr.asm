@@ -235,8 +235,6 @@ result:                             ; Result: CX -- sector, DX -- head,
                     
                                     ; Now we are ready to read sector by
                                     ; sector.
-            mov         ax, BLCS
-            mov         es, ax
             mov         bx, BLIP    ; relative address for the BL
             mov         ah, 0x02
             mov         al, BLNSEC
@@ -247,9 +245,12 @@ result:                             ; Result: CX -- sector, DX -- head,
                                     ; starts here:
 
 read_loop:  cmp         al, 0       ; Read sectors one by one
+            
                                     ; untill all are read.
             jz          bl_start
             mov         [rmd_nsec], al
+            mov         ax, BLCS
+            mov         es, ax
                                     ; save AL -- counter of 
                                     ; reminded sectors to read,
             mov         ax, 0x0201  ; and read only one sector.
@@ -265,6 +266,8 @@ read_loop:  cmp         al, 0       ; Read sectors one by one
             jne         error       ; and print error, if it happend
 
             mov         al, [rmd_nsec]
+
+
                                     ; Restore AL.
                                     ; And as we read a sector:
             dec         al          ; decrease AL by 1
@@ -285,12 +288,13 @@ read_loop:  cmp         al, 0       ; Read sectors one by one
                                     ; of the track.
 
 dec_sec:    mov         cl, 1       ; Set sector number to 1
-            and         word [cx_tmp], 0x00a0
+            and         byte [cx_tmp], 0xa0
             or          [cx_tmp], cl
                                     ; and two high bits of CL.
             mov         cx, [cx_tmp]
                                     ; CH is immutable during this operations.
             inc         dh
+            mov         [cx_tmp], cx
             cmp         dh, [maxhead]
                                     ; Check if the head number is above the
                                     ; maximum head available
@@ -419,7 +423,7 @@ loo:        mov         [bx], ax
 ;                                                                             ;
 ;-----------------------------------------------------------------------------;
 
-mbrmsg:     db          "Disk X"
+mbrmsg:     db          "D. X"
 disc_p      equ         $-1
             db          "."
 mbrln       equ         $-mbrmsg
