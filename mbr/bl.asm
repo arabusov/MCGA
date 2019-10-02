@@ -38,9 +38,10 @@ get_ip:
         call    find1part 
         call    printpartinfo
         call    printdiscinfo
-        call    disc_test
-        ;call    loadfat1
-        ;call    loadroot
+        ;call    disc_test
+        call    loadfat1
+        call    loadroot
+        call    lsroot
 
         mov     bp,haltmsg
         mov     cx,haltmsgln
@@ -96,7 +97,7 @@ printdiscinfo:
 disc_test:
         pusha
         push    es
-        mov     cx, 60
+        mov     cx, 20
         mov     bx, tmp_buf
         mov     ax, 0x143;1+FATSIZE*2 + ROOTSIZE+BLNSEC+0x120
         call    loadfromdisc
@@ -180,6 +181,37 @@ loadroot:
         popa
         ret
 
+lsroot:
+        pusha
+        mov     bp, lsmsg
+        mov     cx, lsmsgln
+        call    println
+        mov     cx, ROOTSIZE*NBYTEPSEC/32 ; 32 bytes per a record
+        mov     bx, root
+lsroot_loop:
+        mov     ax, [bx]
+        cmp     ax, 0
+        jz      lsroot_end
+        mov     bp, bx
+        push    cx
+        mov     cx, 8
+        call    print
+        add     bx, 8
+        mov     bp, bx
+        mov     cx, 3
+        call    println
+        add     bx, 32-8
+        pop     cx
+
+
+        loop    lsroot_loop
+
+
+lsroot_end:
+
+        popa
+        ret
+
 loadfromdisc:
         pusha
         push    es
@@ -191,21 +223,21 @@ loadfromdisc:
 read_loop:
         push    cx
         push    ax          ; <-- ax -- LBA addr
-        mov     al, ah
-        call    printal
-        pop     ax
-        push    ax          ; <-- still LBA addr
-        call    printal
+        ;mov     al, ah
+        ;call    printal
+        ;pop     ax
+        ;push    ax          ; <-- still LBA addr
+        ;call    printal
         call    lba2chs
-        push    ax          ; CHS result, then LBA addr
-        mov     al, cl
-        call    printal
-        mov     al, dh
-        call    printal
-        mov     al, ch
-        call    printalln
+        ;push    ax          ; CHS result, then LBA addr
+        ;mov     al, cl
+        ;call    printal
+        ;mov     al, dh
+        ;call    printal
+        ;mov     al, ch
+        ;call    printalln
 
-        pop     ax          ; ax = CHS result, LBA addr in stack
+        ;pop     ax          ; ax = CHS result, LBA addr in stack
         cmp     al, 0
         jnz     read_error
 read_twice:
@@ -502,6 +534,8 @@ nheadmsg        db  "Last head:           0x"
 nheadmsgln      equ $-nheadmsg
 drtypemsg       db  "Drive type:          0x"
 drtypemsgln     equ $-drtypemsg
+lsmsg           db  "List of files in root directory:"
+lsmsgln         equ $-lsmsg
 haltmsg         db  "HALT PROCESSOR."
 haltmsgln       equ $-haltmsg
 csregmsg        db  "CS : 0x"
@@ -517,6 +551,6 @@ stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
 fat1    equ stcke+2
 root    equ fat1+FATSIZE*NBYTEPSEC
-tmp_buf equ stcke+2
+tmp_buf equ root+ROOTSIZE*NBYTEPSEC
 size    equ $-start
         times NBYTEPSEC*BLNSEC-size db 0 ;empty sectors of the bootloader
