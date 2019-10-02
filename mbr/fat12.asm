@@ -8,3 +8,5 @@ actual_fat_size equ $ - fat1
         times   NBYTEPSEC*FATSIZE db 0
 ;ROOT dir
         times   NBYTEPSEC*ROOTSIZE db 0
+; reserved cluster
+        times   NBYTEPSEC*NSECPCLU db 0

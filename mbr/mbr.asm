@@ -199,7 +199,7 @@ clear:      mov         [bx-2], ax
 
                                     ; Arithmetics for LBA -> CHS
                                     ; AX = first LBA sector+1
-            mov         cx, 1+2*FATSIZE+ROOTSIZE+1
+            mov         cx, BLFST+1
             mov         bx, 0
             mov         dh, 0
 lba_chs:    cmp         cx, [maxsec]

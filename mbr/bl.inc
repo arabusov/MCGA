@@ -12,7 +12,7 @@
     ; maximum 10 sectors (512 bytes each)
     %include "fat12.inc"
     %define BLNSEC  10
-    %define BLFST   2*FATSIZE+ROOTSIZE+1
+    %define BLFST   2*FATSIZE+ROOTSIZE+1+NSECPCLU
     %define BLFSTCYL  0
     %define BLFSTHEAD 1
     %define BLFSTSEC  16
