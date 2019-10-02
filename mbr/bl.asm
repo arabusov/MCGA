@@ -95,10 +95,10 @@ printdiscinfo:
 
 disc_test:
         pusha
-        mov     cx, 12
+        push    es
+        mov     cx, 60
         mov     bx, tmp_buf
-        mov     ax, 1+FATSIZE*2 + ROOTSIZE+BLNSEC
-        add     ax, 0x100
+        mov     ax, 0x143;1+FATSIZE*2 + ROOTSIZE+BLNSEC+0x120
         call    loadfromdisc
 disc_test_loop:
         mov     al, [bx+1]
@@ -107,7 +107,7 @@ disc_test_loop:
         call    printalln
         add     bx, NBYTEPSEC
         loop    disc_test_loop
-
+        pop     es
         popa
         ret
 
@@ -187,26 +187,61 @@ loadfromdisc:
         mov     dx, BLCS
         mov     es,dx
         mov     dl,[disc]
+        mov     word [number_of_attempts], 1
 read_loop:
         push    cx
-        push    ax
+        push    ax          ; <-- ax -- LBA addr
+        mov     al, ah
+        call    printal
+        pop     ax
+        push    ax          ; <-- still LBA addr
+        call    printal
         call    lba2chs
+        push    ax          ; CHS result, then LBA addr
+        mov     al, cl
+        call    printal
+        mov     al, dh
+        call    printal
+        mov     al, ch
+        call    printalln
+
+        pop     ax          ; ax = CHS result, LBA addr in stack
         cmp     al, 0
         jnz     read_error
+read_twice:
         mov     ax, 0x0201
         int     0x13
 
-        jc      read_error
+        
+        jc      second_attempt
         cmp     al,1
         jne     read_error
-        pop     ax
+        pop     ax          ; get LBA addr from stack
         inc     ax
         add     bx, NBYTEPSEC
+        mov     word [number_of_attempts], 1
         pop     cx
         loop    read_loop
         jmp     readexit
+second_attempt:
+        push    dx          ; dx, LBA addr
+        mov     dx, [number_of_attempts]
+        cmp     dx, 1
+        jne     read_error
+        mov     word [number_of_attempts], 2
+        pop     dx          ; LBA addr in stac
+        mov     ah,0
+        int     0x13
+        jc      read_error
+
+        pop     ax
+        push    ax          ;LBA addr in stack
+        call    lba2chs
+        jmp     read_twice
+
 
 read_error:
+        
         mov     bp,readerrmsg 
         mov     cx,readerrmsgln
         call    print
@@ -476,6 +511,7 @@ ipregmsgln      equ $-ipregmsg
 maxsec          dw  0
 maxhead         db  0
 maxcyl          dw  0
+number_of_attempts dw 0
 align 2
 stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
