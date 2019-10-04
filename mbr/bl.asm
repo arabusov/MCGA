@@ -39,9 +39,14 @@ get_ip:
         call    printpartinfo
         call    printdiscinfo
         ;call    disc_test
-        call    loadfat1
         call    loadroot
         call    lsroot
+        call    loadfat1
+        ;call    test_fat
+        mov     si, blname
+        call    test_file
+        mov     si, cfgname
+        call    test_file
 
         mov     bp,haltmsg
         mov     cx,haltmsgln
@@ -172,6 +177,61 @@ loadfat1:
         call    loadfromdisc
         popa
         ret
+
+test_fat:
+        pusha
+        mov     cx, 21
+test_fat_loop:
+        mov     ax, cx
+        call    fat_next_cluster
+        push    ax
+        mov     al, ah
+        call    printal
+        pop     ax
+        call    printalln
+        loop    test_fat_loop
+
+
+        popa
+        ret
+
+fat_next_cluster:
+                        ; ax -- current cluster
+        cmp     ax, 0xffb
+        jae     no_next_cluster
+
+        ; ax is an index, but cell size is 12-bits,
+        ; so 3*ax/2 points on a byte in the FAT.
+        push    bx
+        mov     bx, ax
+        shr     ax, 1           ; div by 2
+        push    cx
+        mov     cx, 3
+        mul     cx
+        pop     cx
+        test    bx, 1
+        jz      even_case
+odd_case:
+        ; 22 32 33 44 54 55
+        ; 03 40 00 05 60 00 values
+        ; 2  3  4  5  6  7  bytes
+        mov     bx, ax
+        add     bx, fat1
+        mov     al, [bx+1]
+        mov     ah, [bx+2]
+        shr     ax, 4
+        jmp     ret_next_cluster
+even_case:
+        mov     bx, ax
+        add     bx, fat1
+        mov     al, [bx]
+        mov     ah, [bx+1]
+        and     ah, 0x0f
+ret_next_cluster:
+        pop     bx
+
+no_next_cluster:
+        ret
 loadroot:
         pusha
         mov     bx,root
@@ -181,6 +241,74 @@ loadroot:
         popa
         ret
 
+cmpstr:
+        push    cx
+        mov     ax, 0
+        mov     cx, 11 ; 8.3
+        cld
+        rep     cmpsb
+        jnz     cmpstr_end
+        mov     ax, 1
+cmpstr_end:
+        pop     cx
+        ret
+
+file_find:
+        push    es
+        push    di
+        push    bx
+        push    cx
+
+        mov     ax, BLCS
+        mov     es, ax
+        mov     bx, root
+        mov     cx, ROOTSIZE*NBYTEPSEC/32
+        push    si
+file_find_loop:
+        pop     si
+        push    si
+        lea     di, [bx]
+        call    cmpstr
+        add     bx, 32
+        cmp     ax, 1
+        jz      file_found
+        loop    file_find_loop
+        mov     ax, 0x00
+        jmp     end_file_find
+
+file_found:
+        sub     bx, 32
+        mov     ax, [bx+32-4-2]
+end_file_find:
+        pop     si
+        pop     cx
+        pop     bx
+        pop     di
+        pop     es
+        ret
+test_file:
+        pusha
+        call   file_find
+test_file_loop:
+        push    ax
+        mov     al, ah
+        call    printal
+        pop     ax
+        call    printalln
+        cmp     ax, 0
+        jz      end_test_file
+
+        cmp     ax, 0x0fff
+        jz      end_test_file
+
+        cmp     ax, 0x0ff0
+        jz      end_test_file
+        call    fat_next_cluster
+        jmp     test_file_loop
+
+end_test_file:
+        popa
+        ret
 lsroot:
         pusha
         mov     bp, lsmsg
@@ -542,6 +670,10 @@ csregmsg        db  "CS : 0x"
 csregmsgln      equ $-csregmsg
 ipregmsg        db  ", IP : 0x"
 ipregmsgln      equ $-ipregmsg
+cfgname         db  "CONFIG  "
+cfgext          db  "INI"
+blname          db  "BL      "
+blext           db  "COM"
 maxsec          dw  0
 maxhead         db  0
 maxcyl          dw  0
