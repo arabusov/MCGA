@@ -43,8 +43,14 @@ get_ip:
         call    lsroot
         call    loadfat1
         ;call    test_fat
+        mov     cx, 11
+        mov     bp, blname
+        call    println
         mov     si, blname
         call    test_file
+        mov     cx, 11
+        mov     bp, cfgname
+        call    println
         mov     si, cfgname
         call    test_file
 
@@ -290,11 +296,6 @@ test_file:
         pusha
         call   file_find
 test_file_loop:
-        push    ax
-        mov     al, ah
-        call    printal
-        pop     ax
-        call    printalln
         cmp     ax, 0
         jz      end_test_file
 
@@ -303,6 +304,11 @@ test_file_loop:
 
         cmp     ax, 0x0ff0
         jz      end_test_file
+        push    ax
+        mov     al, ah
+        call    printal
+        pop     ax
+        call    printalln
         call    fat_next_cluster
         jmp     test_file_loop
 
