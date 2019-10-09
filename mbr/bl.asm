@@ -2,6 +2,7 @@ bits 16
 cpu  286
 section .text
 %include "bl.inc"
+%include "cfg.inc"
 org BLIP
 start: 
         mov ax, BLCS
@@ -38,7 +39,6 @@ get_ip:
         call    find1part 
         call    printpartinfo
         call    printdiscinfo
-        ;call    disc_test
         call    loadroot
         call    lsroot
         call    loadfat1
@@ -54,12 +54,50 @@ get_ip:
         mov     si, cfgname
         call    test_file
 
+        call    load_cfg
+        call    print_cfg
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
 halt:   hlt
         jmp halt
+load_cfg:
+        pusha
+        mov     bx, cfg
+        mov     si, cfgname
+        call    read_file
+        popa
+        ret
+print_cfg:
+        pusha
+        mov     bx, cfg
+        mov     cx, 0
+        mov     bp, bx
+print_cfg_loop:
+        mov     al, [bx]
+        cmp     al, EOF
+        jz      end_print_cfg
+        cmp     al, EOL
+        jz      print_line
+        cmp     al, 0
+        jz      end_print_cfg
+        inc     cx
+        inc     bx
+        jmp     print_cfg_loop
+print_line:
+        call    println
+        inc     bx
+        mov     bp, bx
+        mov     cx, 0
+        jmp     print_cfg_loop
 
+
+end_print_cfg:
+        mov     bp, eofmsg
+        mov     cx, eofln
+        call    println
+        popa
+        ret
 ; subroutines
 printdiscinfo:
         pusha
@@ -102,24 +140,6 @@ printdiscinfo:
         call    printalln
 
         pop     cx
-        popa
-        ret
-
-disc_test:
-        pusha
-        push    es
-        mov     cx, 20
-        mov     bx, tmp_buf
-        mov     ax, 0x143;1+FATSIZE*2 + ROOTSIZE+BLNSEC+0x120
-        call    loadfromdisc
-disc_test_loop:
-        mov     al, [bx+1]
-        call    printal
-        mov     al, [bx]
-        call    printalln
-        add     bx, NBYTEPSEC
-        loop    disc_test_loop
-        pop     es
         popa
         ret
 
@@ -313,6 +333,35 @@ test_file_loop:
         jmp     test_file_loop
 
 end_test_file:
+        popa
+        ret
+
+read_file:
+        pusha
+        call    file_find
+read_file_loop:
+        cmp     ax, 0
+        jz      end_read_file
+
+        cmp     ax, 0x0fff
+        jz      end_test_file
+
+        cmp     ax, 0x0ff0
+        jz      end_test_file
+        dec     ax
+%if NSECPCLU > 1
+        mov     cx, NSECPCLU
+        mul     cx
+%endif
+        add     ax, DATA_AREA
+        mov     cx, 1
+%rep    NSECPCLU
+        call    loadfromdisc
+        add     bx, NBYTEPSEC
+        inc     ax
+%endrep
+        call    fat_next_cluster
+end_read_file:
         popa
         ret
 lsroot:
@@ -680,6 +729,8 @@ cfgname         db  "CONFIG  "
 cfgext          db  "INI"
 blname          db  "BL      "
 blext           db  "COM"
+eofmsg          db  "EOF"
+eofln           equ $-eofmsg
 maxsec          dw  0
 maxhead         db  0
 maxcyl          dw  0
@@ -689,6 +740,6 @@ stckb:  times BLSTCKSIZE db 0
 stcke:  equ $
 fat1    equ stcke+2
 root    equ fat1+FATSIZE*NBYTEPSEC
-tmp_buf equ root+ROOTSIZE*NBYTEPSEC
+cfg     equ root+ROOTSIZE*NBYTEPSEC
 size    equ $-start
         times NBYTEPSEC*BLNSEC-size db 0 ;empty sectors of the bootloader

@@ -40,4 +40,5 @@
     %define NHIDDSEC    0
     %define NRESSEC     1
     %define NFATCOPYS   2
+    %define DATA_AREA   NRESSEC+NFATCOPYS*FATSIZE+ROOTSIZE
 %endif
