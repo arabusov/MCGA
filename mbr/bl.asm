@@ -60,6 +60,7 @@ get_ip:
         mov     bp, kernelname
         mov     cx, 11
         call    println
+        call    print_kernel_address
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
@@ -71,6 +72,20 @@ load_cfg:
         mov     si, cfgname
         call    read_file
         popa
+        ret
+        
+print_kernel_address:
+        mov     al,[kernel_seg+1]
+        call    printal
+        mov     al,[kernel_seg]
+        call    printal
+        mov     bp, colon
+        mov     cx, 1
+        call    print
+        mov     al,[kernel_offset+1]
+        call    printal
+        mov     al,[kernel_offset]
+        call    printalln
         ret
 
 parse:
@@ -141,6 +156,7 @@ parse_cfg:
 
         cmp     dh, 0
         jz      .parse_cfg_end
+        call    address_line
 
 .parse_cfg_end:
         pop     es
@@ -154,9 +170,15 @@ kernel_line:
         mov     al, [bx+si]
         cmp     al, '.'
         jz      .ex_copy
-        mov     [bx+di], al
+        cmp     al, ' '
+        jnz     .name_copy_continue
         inc     bx
-        cmp     bx, 8
+        jmp     .name_copy
+.name_copy_continue:
+        mov     [di], al
+        inc     di
+        inc     bx
+        cmp     di, 8+kernelname
         jna     .name_copy
 .ex_copy:
         lea     di, [kernelname+8]
@@ -166,6 +188,78 @@ kernel_line:
         cld
         rep     movsb
         ret 
+address_line:
+        mov     bx, 0
+        mov     ax, 0
+        lea     di, [kernel_seg]
+        mov     cx, 4
+.segment:
+        mov     al, [bx+si]
+        cmp     al, ':'
+        jz      .segment_done
+        cmp     al, ' '
+        jnz      .continue_segment
+        inc     bx
+        jmp     .segment
+.continue_segment:
+        call    hexal
+        dec     cx
+        push    cx
+        shl     cx,2 ; * 4 
+        shl     ax, cl
+        or      [di], ax
+        pop     cx
+        mov     ax, 0
+        cmp     cx, 0
+        inc     bx
+        jnz     .segment
+.segment_done:
+        mov     cx, 4
+        lea     di, [kernel_offset]
+        mov     ax, 0
+        inc     bx
+.offset:
+        mov     al, [bx+si]
+        cmp     al, EOL
+        jz      .offset_done
+        cmp     al, ' '
+        jnz      .continue_offset
+        inc     bx
+        jmp     .offset
+.continue_offset:
+        inc     bx
+        call    hexal
+        dec     cx
+        push    cx
+        shl     cx, 2
+        shl     ax, cl
+        or      [di], ax
+        pop     cx
+        mov     ax, 0
+        cmp     cx, 0
+        jnz     .offset
+.offset_done:
+        ret
+
+hexal:
+        cmp     al, '0'
+        jb      .ignore
+        cmp     al, '9'
+        jna     .digit_dec
+        cmp     al, 'A'
+        jb      .ignore
+        cmp     al, 'F'
+        jna     .digit_hex
+.ignore:
+        mov     al, 0
+        jmp     .continue
+.digit_dec:
+        sub     al, '0'
+        jmp     .continue
+.digit_hex:
+        sub     al, 'A'-0x0a
+.continue:
+        ret
 
 print_cfg:
         pusha
@@ -505,21 +599,7 @@ loadfromdisc:
 read_loop:
         push    cx
         push    ax          ; <-- ax -- LBA addr
-        ;mov     al, ah
-        ;call    printal
-        ;pop     ax
-        ;push    ax          ; <-- still LBA addr
-        ;call    printal
         call    lba2chs
-        ;push    ax          ; CHS result, then LBA addr
-        ;mov     al, cl
-        ;call    printal
-        ;mov     al, dh
-        ;call    printal
-        ;mov     al, ch
-        ;call    printalln
-
-        ;pop     ax          ; ax = CHS result, LBA addr in stack
         cmp     al, 0
         jnz     read_error
 read_twice:
@@ -813,6 +893,7 @@ nsecmsgln       equ $-nsecmsg
 ncylmsg         db  "Last cylinder:       0x"
 ncylmsgln       equ $-ncylmsg
 nheadmsg        db  "Last head:           0x"
+colon           equ nheadmsg+9
 nheadmsgln      equ $-nheadmsg
 drtypemsg       db  "Drive type:          0x"
 drtypemsgln     equ $-drtypemsg
@@ -827,6 +908,8 @@ ipregmsgln      equ $-ipregmsg
 cfg_kernel      db  "kernel"
 cfg_kernelln   equ $-cfg_kernel
 kernelname      times 11 db " "
+kernel_seg      dw  0
+kernel_offset   dw  0
 cfg_address      db  "address"
 cfg_addressln    equ $-cfg_address
 cfgname         db  "CONFIG  "
