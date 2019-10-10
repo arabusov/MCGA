@@ -56,7 +56,7 @@ get_ip:
 
         call    load_cfg
         call    print_cfg
-        call    parse_kernel_name
+        call    parse_cfg
         mov     bp, kernelname
         mov     cx, 11
         call    println
@@ -74,6 +74,9 @@ load_cfg:
         ret
 
 parse:
+        mov     bx, cfg
+        mov     si, bx
+        mov     cx, 0
 .parse_loop:
         mov     al, [bx]
         cmp     al, EOF
@@ -96,12 +99,10 @@ parse:
         mov     dh, 0
         mov     al, cl
         call    printalln
-        mov     dl, cfg_kernelln
         cmp     dl, cl
         jnz     .continue 
         mov     ax, ds
         mov     es, ax
-        mov     di, cfg_kernel
         cld
         rep     cmpsb
         jnz     .continue
@@ -123,18 +124,25 @@ parse:
 .end_parse:
         ret
 
-parse_kernel_name:
+parse_cfg:
         pusha
         push    es
-        mov     bx, cfg
-        mov     si, bx
-        mov     cx, 0
+        mov     di, cfg_kernel
+        mov     dl, cfg_kernelln
         call    parse
 
         cmp     dh, 0
-        jz      end_parse_kernel
+        jz      .continue
         call    kernel_line
-end_parse_kernel:
+.continue:
+        mov     di, cfg_address
+        mov     dl, cfg_addressln
+        call    parse
+
+        cmp     dh, 0
+        jz      .parse_cfg_end
+
+.parse_cfg_end:
         pop     es
         popa
         ret
@@ -819,6 +827,8 @@ ipregmsgln      equ $-ipregmsg
 cfg_kernel      db  "kernel"
 cfg_kernelln   equ $-cfg_kernel
 kernelname      times 11 db " "
+cfg_address      db  "address"
+cfg_addressln    equ $-cfg_address
 cfgname         db  "CONFIG  "
 cfgext          db  "INI"
 blname          db  "BL      "
