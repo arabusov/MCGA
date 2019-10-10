@@ -73,18 +73,13 @@ load_cfg:
         popa
         ret
 
-parse_kernel_name:
-        pusha
-        push    es
-        mov     bx, cfg
-        mov     si, bx
-        mov     cx, 0
-parse_kernel_loop:
+parse:
+.parse_loop:
         mov     al, [bx]
         cmp     al, EOF
-        jz      end_parse_kernel
+        jz      .end_parse
         cmp     al, 0
-        jz      end_parse_kernel
+        jz      .end_parse
         cmp     al, EOL
         jz      .line_ready
         cmp     al, '='
@@ -94,7 +89,7 @@ parse_kernel_loop:
         inc     cl
 .continue:
         inc     bx
-        jmp     parse_kernel_loop
+        jmp     .parse_loop
 
 
 .eq_sign:
@@ -114,17 +109,37 @@ parse_kernel_loop:
         inc     bx
         mov     si, bx
         mov     cx, 0
-        jmp     parse_kernel_loop
+        jmp     .parse_loop
 
 
 .continue_next_line:
         inc     bx
         mov     si, bx
         mov     cx, 0
-        jmp     parse_kernel_loop
+        jmp     .parse_loop
 .line_ready:
         cmp     dh, 0
         jz      .continue_next_line
+.end_parse:
+        ret
+
+parse_kernel_name:
+        pusha
+        push    es
+        mov     bx, cfg
+        mov     si, bx
+        mov     cx, 0
+        call    parse
+
+        cmp     dh, 0
+        jz      end_parse_kernel
+        call    kernel_line
+end_parse_kernel:
+        pop     es
+        popa
+        ret
+
+kernel_line:
         lea     di, [kernelname]
         mov     bx, 0
 .name_copy:
@@ -142,11 +157,8 @@ parse_kernel_loop:
         mov     cx, 3
         cld
         rep     movsb
-        
-end_parse_kernel:
-        pop     es
-        popa
-        ret
+        ret 
+
 print_cfg:
         pusha
         mov     bx, cfg
