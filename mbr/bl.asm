@@ -56,6 +56,10 @@ get_ip:
 
         call    load_cfg
         call    print_cfg
+        call    parse_kernel_name
+        mov     bp, kernelname
+        mov     cx, 11
+        call    println
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
@@ -66,6 +70,79 @@ load_cfg:
         mov     bx, cfg
         mov     si, cfgname
         call    read_file
+        popa
+        ret
+
+parse_kernel_name:
+        pusha
+        push    es
+        mov     bx, cfg
+        mov     si, bx
+        mov     cx, 0
+parse_kernel_loop:
+        mov     al, [bx]
+        cmp     al, EOF
+        jz      end_parse_kernel
+        cmp     al, 0
+        jz      end_parse_kernel
+        cmp     al, EOL
+        jz      .line_ready
+        cmp     al, '='
+        jz      .eq_sign
+        cmp     al, ' '
+        jz      .continue
+        inc     cl
+.continue:
+        inc     bx
+        jmp     parse_kernel_loop
+
+
+.eq_sign:
+        mov     dh, 0
+        mov     al, cl
+        call    printalln
+        mov     dl, cfg_kernelln
+        cmp     dl, cl
+        jnz     .continue 
+        mov     ax, ds
+        mov     es, ax
+        mov     di, cfg_kernel
+        cld
+        rep     cmpsb
+        jnz     .continue
+        mov     dh, 1
+        inc     bx
+        mov     si, bx
+        mov     cx, 0
+        jmp     parse_kernel_loop
+
+
+.continue_next_line:
+        inc     bx
+        mov     si, bx
+        mov     cx, 0
+        jmp     parse_kernel_loop
+.line_ready:
+        cmp     dh, 0
+        jz      .continue_next_line
+        lea     di, [kernelname]
+.name_copy:
+        mov     al, [si]
+        cmp     al, '.'
+        jz      .ex_copy
+        mov     [di], al
+        inc     di
+        inc     si
+        jmp     .name_copy
+.ex_copy:
+        lea     di, [kernelname+8]
+        inc     si
+        mov     cx, 3
+        cld
+        rep     movsb
+        
+end_parse_kernel:
+        pop     es
         popa
         ret
 print_cfg:
@@ -725,6 +802,9 @@ csregmsg        db  "CS : 0x"
 csregmsgln      equ $-csregmsg
 ipregmsg        db  ", IP : 0x"
 ipregmsgln      equ $-ipregmsg
+cfg_kernel      db  "kernel"
+cfg_kernelln   equ $-cfg_kernel
+kernelname      times 11 db " "
 cfgname         db  "CONFIG  "
 cfgext          db  "INI"
 blname          db  "BL      "
