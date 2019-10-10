@@ -126,16 +126,18 @@ parse_kernel_loop:
         cmp     dh, 0
         jz      .continue_next_line
         lea     di, [kernelname]
+        mov     bx, 0
 .name_copy:
-        mov     al, [si]
+        mov     al, [bx+si]
         cmp     al, '.'
         jz      .ex_copy
-        mov     [di], al
-        inc     di
-        inc     si
-        jmp     .name_copy
+        mov     [bx+di], al
+        inc     bx
+        cmp     bx, 8
+        jna     .name_copy
 .ex_copy:
         lea     di, [kernelname+8]
+        add     si, bx
         inc     si
         mov     cx, 3
         cld
