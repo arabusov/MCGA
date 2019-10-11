@@ -3,6 +3,10 @@ cpu 286
 
 %include "atix.inc"
 %include "fat12.inc"
+
+code_size   equ         end_code - start
+stack_size  equ         ATIX_STACK_OFFSET-code_size-data_size-ATIX_OFFSET
+
 section .text
 org ATIX_OFFSET
 ;----------------------------------------------------------------------------;
@@ -43,6 +47,11 @@ atix_halt:
             hlt
             jmp         atix_halt
 
+check_mode:
+            smsw        ax
+            and         ax, PM_BIT
+            ret
+
 ;----------------------------------------------------------------------------;
 ;                             Clear screen routine                           ;
 ;                                                                            ;
@@ -75,20 +84,31 @@ clrscr:
 ;----------------------------------------------------------------------------;
 
 println:
-            push        ds
-            push        es
             pusha
+            push        es
+            push        ds
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
             mov         ax, ATIX_SEG
             mov         ds, ax
             mov         es, ax
+            jmp         .continue
+
+.pm:        mov         ax, data_sel
+            mov         es, ax
+            mov         ds, ax
+.continue:
             mov         bx, [crsps]
             call        mvcurs
             shl         bx,1
             call        print
             call        newline
-            popa
-            pop         es
+
             pop         ds
+            pop         es
+            popa
             ret
 
 ;----------------------------------------------------------------------------;
@@ -98,16 +118,27 @@ println:
 
 print:  
             pusha
-            push        ds
             push        es
+            push        ds
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
+            mov         ax, SCRSEG
+            mov         ds, ax
             mov         ax, ATIX_SEG
             mov         es, ax
+            jmp         .continue
+
+.pm:        mov         ax, data_sel
+            mov         es, ax
+            mov         ax, video_sel
+            mov         ds, ax
+.continue:
             cmp         cx,0
             jz          endprn
             mov         bx,[es:crsps]
             shl         bx,1
-            mov         ax, SCRSEG
-            mov         ds, ax
             mov         ah, 0x02
 get_symbol:
             mov         al, [es:bp]
@@ -157,16 +188,28 @@ contprint2:
 endprn:
             shr         bx,1
             call        mvcurs
-            pop         es
             pop         ds
+            pop         es
             popa
             ret
 
 mvcurs:
             pusha
+            push        es
             push        ds
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
             mov         ax, ATIX_SEG
             mov         ds, ax
+            mov         es, ax
+            jmp         .continue
+
+.pm:        mov         ax, data_sel
+            mov         ds, ax
+            mov         es, ax
+.continue:
             mov         [crsps], bx     ;save the position
             mov         dx, 0x03d4
             mov         al, 0x0f
@@ -183,7 +226,9 @@ mvcurs:
             inc         dl
             mov         al, bh
             out         dx, al
+
             pop         ds
+            pop         es
             popa
             ret
 
@@ -193,10 +238,19 @@ nl:
             pusha
             push        es
             push        ds
-
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
             mov         ax, SCRSEG
             mov         ds, ax
             mov         es, ax
+            jmp         .continue
+
+.pm:        mov         ax, video_sel
+            mov         ds, ax
+            mov         es, ax
+.continue:
             mov         di, 0x00
             mov         si, SCRNCL*2
             mov         cx, SCRNCL*(SCRNRW-1)*2
@@ -215,8 +269,24 @@ clearln:
             pop         es
             popa
             ret
+
 newline:
             pusha
+            push        es
+            push        ds
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
+            mov         ax, ATIX_SEG
+            mov         ds, ax
+            mov         es, ax
+            jmp         .continue
+
+.pm:        mov         ax, data_sel
+            mov         ds, ax
+            mov         es, ax
+.continue:
             mov         ax, [crsps]
             mov         bl,SCRNCL
             div         bl
@@ -235,19 +305,54 @@ cnl:
             mov         bx,SCRNCL*(SCRNRW-1)
             call        mvcurs
 endprint:
+            pop         ds
+            pop         es
             popa
             ret
+
+end_code    equ         $
 
 ;----------------------------------------------------------------------------;
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 
+begin_data  equ         $
+
 atixmsg:    db          "ATIX loading..."
 atixmsgln   equ         $-atixmsg
 haltmsg     db          "ATIX: HALT PROCESSOR."
 haltmsgln   equ         $-haltmsg
 crsps:      db          0
+
+;----------------------------------------------------------------------------;
+;                         Global descripton table                            ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+gdt:
+            DESCRIPTOR  0, 0, 0, 0
+.code_desc: DESCRIPTOR  ATIX_CODE_BASE, 0, code_size, CODE_ACC_BYTE
+.stack_desc:DESCRIPTOR  ATIX_STACK_BASE,0,stack_size,STACK_ACC_BYTE
+.data_desc: DESCRIPTOR  begin_data+ATIX_SEG*0x10,0,data_size,DATA_ACC_BYTE
+.video_desc:DESCRIPTOR  0xb800,0,SCRNRW*SCRNCL*2,DATA_ACC_BYTE
+
+code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x04
+data_sel    equ         ((.data_desc -  gdt)/DESC_SIZE)*0x04
+stack_sel   equ         ((.stack_desc -  gdt)/DESC_SIZE)*0x04
+video_sel   equ         ((.video_desc -  gdt)/DESC_SIZE)*0x04
+
+;----------------------------------------------------------------------------;
+;                         Interrupt descriptor table                         ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+idt:
+            %rep 0x100
+            DESCRIPTOR 0, 0, 0, 0
+            %endrep
+
+data_size   equ         $-begin_data
 size        equ         $-start
             times NBYTEPSEC*ATIX_NSEC-size db 0 ;empty sectors of the kernel
 
