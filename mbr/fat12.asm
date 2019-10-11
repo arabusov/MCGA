@@ -1,9 +1,12 @@
 %include "fat12.inc"
 %include "bl.inc"
 %include "cfg.inc"
+%include "atix.inc"
 %define     NBLCLU  BLNSEC/NSECPCLU 
 %define     NCFGCLU CFG_NSEC/NSECPCLU
 %define     CFG_1CLU    NBLCLU+2
+%define     ATIX_1CLU   CFG_1CLU+CFG_NSEC/NSECPCLU
+%define     NATIXCLU    ATIX_NSEC/NSECPCLU
 %macro  MAKE_FILE_BASE 4
 %if %3 >=2
 
@@ -89,6 +92,8 @@ fat%1:       db      FAT_ID, 0xff, 0xff
         ;    db  0x03, 0x40, 0x00, 0x05, 0x60, 0x00,
         FILL_FAT 0x002, (4/2)
             db  0xff, 0xff, 0xff
+        FILL_FAT ATIX_1CLU, (NATIXCLU/2-1)
+        PAIR (NATIXCLU+ATIX_1CLU-1), 0xfff
 %else
 ;db 0x3
 ;db 0x40
@@ -106,8 +111,9 @@ fat%1:       db      FAT_ID, 0xff, 0xff
 db 0xb
 db 0xf0
 db 0xff
-db 0xff
-db 0xf
+        PAIR 0x00d, 0xfff
+        FILL_FAT ATIX_1CLU, NATIXCLU/2
+        PAIR (ATIX_1CLU+NATIXCLU-1), 0xfff
 %endif
 actual_fat_size equ $ - fat%1
         times   NBYTEPSEC*FATSIZE-actual_fat_size db 0
@@ -144,6 +150,20 @@ dir:
         db  0x27*2+1, 0x2 ; last modified date
         dw  CFG_1CLU  ; first cluster
         dd  CFG_NSEC*NBYTEPSEC ; BL size in bytes
+
+        db  "ATIX    "
+        db  "COM"
+        db  0x7 ; read only, hidden and system
+        db  0   ; reserved
+        db  199 ; create time for dos 7.0
+        db  0xa*0x8, 0x0 ; 12h
+        db  0x27*2+1, 0x2 ; create date
+        db  0x27*2+1, 0x2 ; last access date
+        db  0xff, 0xff; rights
+        db  0xa*0x8, 0x0 ; 12h last modified time
+        db  0x27*2+1, 0x2 ; last modified date
+        dw  ATIX_1CLU  ; first cluster
+        dd  ATIX_NSEC*NBYTEPSEC ; ATIX size in bytes
 actual_dir_size equ $ - dir
         times   NBYTEPSEC*ROOTSIZE-actual_dir_size db 0
 ; reserved cluster

@@ -3,15 +3,19 @@ diskette=fda${floppy_type}.img
 
 AS=nasm
 AFLAGS=-f bin -dFLOPPY_TYPE=${floppy_type}
-build: mbr.bin bl.bin fat12.bin cfg.bin floppy.bin 
+build: mbr.bin bl.bin fat12.bin cfg.bin atix.com floppy.bin 
 	cat mbr.bin > ${diskette}
 	cat fat12.bin >> ${diskette}
 	cat bl.bin >> ${diskette}
 	cat cfg.bin >> ${diskette}
+	cat	atix.com >> ${diskette}
 	cat floppy.bin >> ${diskette}
 
 
 %.bin : %.asm
+	${AS} ${AFLAGS} $< -o $@
+
+%.com : %.asm
 	${AS} ${AFLAGS} $< -o $@
 
 run:

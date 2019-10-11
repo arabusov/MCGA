@@ -61,16 +61,16 @@ get_ip:
         mov     cx, 11
         call    println
         call    print_kernel_address
+        mov     si, kernelname
+        mov     cx, 11
         call    load_kernel
         cmp     ax, 0
-        jz      .halt
-        mov     ax, [kernel_seg]
-        mov     [60*4+2], ax
-        mov     ax, [kernel_offset]
-        mov     [60*4], ax
-        int     0x60
+        jz      bl_halt
+        db      0xea        ;immediate far jump
+kernel_offset:   dw  bl_halt
+kernel_seg:      dw  BLCS
 
-.halt:
+bl_halt:
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
@@ -221,6 +221,8 @@ kernel_line:
 address_line:
         mov     bx, 0
         mov     ax, 0
+        mov     [kernel_seg], ax
+        mov     [kernel_offset], ax
         lea     di, [kernel_seg]
         mov     cx, 4
 .segment:
@@ -538,6 +540,7 @@ end_file_find:
 test_file:
         pusha
         call   file_find
+        mov     cx, 10
 test_file_loop:
         cmp     ax, 0
         jz      end_test_file
@@ -552,8 +555,10 @@ test_file_loop:
         call    printal
         pop     ax
         call    printalln
+        push    cx
         call    fat_next_cluster
-        jmp     test_file_loop
+        pop     cx
+        loop    test_file_loop
 
 end_test_file:
         popa
@@ -575,10 +580,10 @@ read_file_loop:
 .continue:
 
         cmp     ax, 0x0fff
-        jz      end_test_file
+        jz      end_read_file
 
         cmp     ax, 0x0ff0
-        jz      end_test_file
+        jz      end_read_file
         dec     ax
 %if NSECPCLU > 1
         mov     cx, NSECPCLU
@@ -723,13 +728,20 @@ printalln:
         call    newline
         ret
 println:
+        push    ds
+        push    es
         pusha
+        mov     ax, BLCS
+        mov     ds, ax
+        mov     es, ax
         mov bx, [crsps]
         call    mvcurs
         shl bx,1
         call    print
         call    newline
         popa
+        pop     es
+        pop     ds
         ret
 newline:
         pusha
@@ -755,6 +767,12 @@ endprint:
         ret
 printal:
         pusha
+        push    ds
+        push    es
+        mov     bx, BLCS
+        mov     ds, bx
+        mov     es, bx
+
         mov     ah, al
         and     ah,0x0f
         shr     al,4
@@ -776,6 +794,8 @@ contin2:
         mov     cx, 2
         mov     bp,alres
         call    print
+        pop     es
+        pop     ds
         popa
         ret
 
@@ -956,8 +976,6 @@ fnfln           equ $-fnf
 fail_kernel     db  "Failed to load kernel."
 fail_kernelln   equ $-fail_kernel
 kernelname      times 11 db " "
-kernel_seg      dw  0
-kernel_offset   dw  0
 cfg_address      db  "address"
 cfg_addressln    equ $-cfg_address
 cfgname         db  "CONFIG  "
