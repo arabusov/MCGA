@@ -29,3 +29,4 @@ pcem:
 
 clean:
 	rm -f *.bin
+	rm -rf *.com
