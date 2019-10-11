@@ -93,7 +93,7 @@ fat%1:       db      FAT_ID, 0xff, 0xff
         FILL_FAT 0x002, (4/2)
             db  0xff, 0xff, 0xff
         FILL_FAT ATIX_1CLU, (NATIXCLU/2-1)
-        PAIR (NATIXCLU+ATIX_1CLU-1), 0xfff
+        PAIR (NATIXCLU+ATIX_1CLU+1), 0xfff
 %else
 ;db 0x3
 ;db 0x40
@@ -113,7 +113,7 @@ db 0xf0
 db 0xff
         PAIR 0x00d, 0xfff
         FILL_FAT ATIX_1CLU, NATIXCLU/2
-        PAIR (ATIX_1CLU+NATIXCLU-1), 0xfff
+        PAIR (ATIX_1CLU+NATIXCLU+1), 0xfff
 %endif
 actual_fat_size equ $ - fat%1
         times   NBYTEPSEC*FATSIZE-actual_fat_size db 0

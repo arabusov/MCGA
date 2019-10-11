@@ -448,7 +448,7 @@ test_fat_loop:
 
 fat_next_cluster:
                         ; ax -- current cluster
-        cmp     ax, 0xffb
+        cmp     ax, 0xff0
         jae     no_next_cluster
 
         ; ax is an index, but cell size is 12-bits,
@@ -540,7 +540,7 @@ end_file_find:
 test_file:
         pusha
         call   file_find
-        mov     cx, 10
+        mov     cx, 36
 test_file_loop:
         cmp     ax, 0
         jz      end_test_file
@@ -565,10 +565,12 @@ end_test_file:
         ret
 
 read_file:
-        push     bp
-        push     cx
-        push     bx
+        push    dx
+        push    bp
+        push    cx
+        push    bx
         call    file_find
+        mov     dx, ax
 read_file_loop:
         cmp     ax, 0
         jnz     .continue
@@ -578,12 +580,13 @@ read_file_loop:
         mov     ax, 0
         jmp     end_read_file
 .continue:
-
-        cmp     ax, 0x0fff
-        jz      end_read_file
-
+        push    ax
+        mov     al, ah
+        call    printal
+        pop     ax
+        call    printalln
         cmp     ax, 0x0ff0
-        jz      end_read_file
+        jae     end_read_file
         dec     ax
 %if NSECPCLU > 1
         mov     cx, NSECPCLU
@@ -595,12 +598,17 @@ read_file_loop:
         call    loadfromdisc
         add     bx, NBYTEPSEC
         inc     ax
+        mov     cx, 1
 %endrep
+        mov     ax, dx
         call    fat_next_cluster
+        mov     dx, ax
+        jmp     read_file_loop
 end_read_file:
         pop     bx
         pop     cx
         pop     bp
+        pop     dx
         ret
 lsroot:
         pusha

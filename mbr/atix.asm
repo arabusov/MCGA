@@ -16,7 +16,15 @@ start:
                                         ; message.
             mov         bp, atixmsg
             mov         cx, atixmsgln
-            call        print
+            call        println
+
+;---------------------------------------;
+;           Halt processor              ;
+;---------------------------------------;
+
+            mov         bp, haltmsg
+            mov         cx, haltmsgln
+            call        println
 
 atix_halt:
             hlt
@@ -38,7 +46,7 @@ clrscr:
             mov         cx, SCRNCL*SCRNRW*2
 
 .loop:      mov         bx, cx
-            mov         word [bx], 0x0200
+            mov         word [bx], 0x0002
             loop        .loop
 
             mov         bx, 0
@@ -47,6 +55,27 @@ clrscr:
             pop         ds
             pop         cx
             pop         bx
+            ret
+;----------------------------------------------------------------------------;
+;                           Print line routine                               ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+println:
+            push    ds
+            push    es
+            pusha
+            mov     ax, ATIX_SEG
+            mov     ds, ax
+            mov     es, ax
+            mov bx, [crsps]
+            call    mvcurs
+            shl bx,1
+            call    print
+            call    newline
+            popa
+            pop     es
+            pop     ds
             ret
 
 ;----------------------------------------------------------------------------;
@@ -199,7 +228,8 @@ endprint:
 
 atixmsg:    db          "ATIX loading..."
 atixmsgln   equ         $-atixmsg
-colon:      db          ":"
+haltmsg     db          "ATIX: HALT PROCESSOR."
+haltmsgln   equ         $-haltmsg
 crsps:      db          0
 size    equ $-start
             times NBYTEPSEC*ATIX_NSEC-size db 0 ;empty sectors of the kernel
