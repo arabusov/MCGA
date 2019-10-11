@@ -61,6 +61,16 @@ get_ip:
         mov     cx, 11
         call    println
         call    print_kernel_address
+        call    load_kernel
+        cmp     ax, 0
+        jz      .halt
+        mov     ax, [kernel_seg]
+        mov     [60*4+2], ax
+        mov     ax, [kernel_offset]
+        mov     [60*4], ax
+        int     0x60
+
+.halt:
         mov     bp,haltmsg
         mov     cx,haltmsgln
         call    println
@@ -73,7 +83,27 @@ load_cfg:
         call    read_file
         popa
         ret
-        
+load_kernel:
+        push    es
+        push    bx
+        push    si
+        push    bp
+        mov     ax, [kernel_seg]
+        mov     es, ax
+        mov     bx, [kernel_offset]
+        mov     si, kernelname
+        call    read_file
+        cmp     ax, 0
+        jnz     .continue
+        mov     bp, fail_kernel
+        mov     cx, fail_kernelln
+        call    println
+.continue:
+        pop     bp
+        pop     si
+        pop     bx
+        pop     es
+        ret
 print_kernel_address:
         mov     al,[kernel_seg+1]
         call    printal
@@ -492,7 +522,7 @@ file_find_loop:
         cmp     ax, 1
         jz      file_found
         loop    file_find_loop
-        mov     ax, 0x00
+        mov     ax, 0x0000
         jmp     end_file_find
 
 file_found:
@@ -530,11 +560,19 @@ end_test_file:
         ret
 
 read_file:
-        pusha
+        push     bp
+        push     cx
+        push     bx
         call    file_find
 read_file_loop:
         cmp     ax, 0
-        jz      end_read_file
+        jnz     .continue
+        mov     bp, fnf
+        mov     cx, fnfln
+        call    println
+        mov     ax, 0
+        jmp     end_read_file
+.continue:
 
         cmp     ax, 0x0fff
         jz      end_test_file
@@ -555,7 +593,9 @@ read_file_loop:
 %endrep
         call    fat_next_cluster
 end_read_file:
-        popa
+        pop     bx
+        pop     cx
+        pop     bp
         ret
 lsroot:
         pusha
@@ -590,10 +630,7 @@ lsroot_end:
 
 loadfromdisc:
         pusha
-        push    es
 
-        mov     dx, BLCS
-        mov     es,dx
         mov     dl,[disc]
         mov     word [number_of_attempts], 1
 read_loop:
@@ -646,7 +683,6 @@ read_error:
 haltr:  hlt
         jmp haltr
 readexit:
-        pop     es
         popa
         ret
 
@@ -746,6 +782,9 @@ contin2:
 print:  
         pusha
         push ds
+        push    es
+        mov     ax, BLCS
+        mov     es, ax
         cmp     cx,0
         jz      endprn
         mov     bx,[es:crsps]
@@ -801,6 +840,7 @@ contprint2:
 endprn:
         shr bx,1
         call mvcurs
+        pop es
         pop ds
         popa
         ret
@@ -808,7 +848,10 @@ endprn:
 
 mvcurs:
         pusha
-        mov [es:crsps], bx ;save the position
+        push    ds
+        mov     ax, BLCS
+        mov     ds, ax
+        mov [crsps], bx ;save the position
         mov dx, 0x03d4
         mov al, 0x0f
         out dx, al
@@ -824,6 +867,7 @@ mvcurs:
         inc dl
         mov al, bh
         out dx, al
+        pop     ds
         popa
         ret
 
@@ -907,6 +951,10 @@ ipregmsg        db  ", IP : 0x"
 ipregmsgln      equ $-ipregmsg
 cfg_kernel      db  "kernel"
 cfg_kernelln   equ $-cfg_kernel
+fnf             db  "File not found."
+fnfln           equ $-fnf
+fail_kernel     db  "Failed to load kernel."
+fail_kernelln   equ $-fail_kernel
 kernelname      times 11 db " "
 kernel_seg      dw  0
 kernel_offset   dw  0
