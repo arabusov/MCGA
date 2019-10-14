@@ -20,11 +20,11 @@
     ; descriptor macro args: base low 16 bits,
     ; base high 8 bits, limit 16 bits,
     ; and the access rights byte
-    %macro DESCRIPTOR 4
-            dw      %3
-            dw      %1
-            db      %2
-            db      %4
+    %macro DESCRIPTOR 3
+            dw      %2
+            dw      (%1 % 0x10000)
+            db      (%1 / 0x10000)
+            db      %3
             dw      0 ; reserved
     %endmacro
 
@@ -48,6 +48,15 @@
     %define STACK_ACC_BYTE PRESENT| SEGMENT_DESCRIPTOR |      0     | \
        EXPAND_DOWN | RW_BIT | ACCESSED
 
-    %define ATIX_CODE_BASE ATIX_SEG*0x10+ATIX_OFFSET
-    %define ATIX_STACK_BASE ATIX_SEG*0x10+ATIX_STACK_OFFSET
+    %define TSS_ACC_BYTE PRESENT | ACCESSED
+
+    %define ATIX_CODE_BASE (ATIX_SEG*0x10+ATIX_OFFSET)
+    %define ATIX_STACK_BASE (ATIX_SEG*0x10+ATIX_STACK_OFFSET)
+
+    %define ATIX_STACK_BLO (ATIX_STACK_BASE % 0x10000)
+    %define ATIX_STACK_BHI (ATIX_STACK_BASE / 0x10000)
+
+    ; Interrupts
+    %define IRQ0 0x20
+    %define IRQ8 IRQ0+8
 %endif
