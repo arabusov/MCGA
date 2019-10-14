@@ -78,7 +78,11 @@ start:
             mov         al, 0xdd
             out         0x64, al
 
-            
+;---------------------------------------;
+;               Debug GDT               ;
+;---------------------------------------;
+
+            call        debug_gdt
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -96,6 +100,52 @@ atix_halt:
 check_mode:
             smsw        ax
             and         ax, PM_BIT
+            ret
+
+;---------------------------------------;
+;           Debug GDT routine           ;
+;---------------------------------------;
+
+debug_gdt:
+            mov         bp, msg.code_desc
+            mov         cx, msg.code_descln
+            call        print
+            
+            mov         al, [gdt.code_desc+5]
+            call        printal
+            call        newline
+
+            mov         bp, msg.tss_desc
+            mov         cx, msg.tss_descln
+            call        print
+            
+            mov         al, [gdt.ktss_desc+5]
+            call        printal
+            call        newline
+
+            mov         bp, msg.video_desc
+            mov         cx, msg.video_descln
+            call        print
+            
+            mov         al, [gdt.video_desc+5]
+            call        printal
+            call        newline
+
+            mov         bp, msg.stack_desc
+            mov         cx, msg.stack_descln
+            call        print
+            
+            mov         al, [gdt.stack_desc+5]
+            call        printal
+            call        newline
+
+            mov         bp, msg.data_desc
+            mov         cx, msg.data_descln
+            call        print
+            
+            mov         al, [gdt.data_desc+5]
+            call        printal
+            call        newline
             ret
 
 ;----------------------------------------------------------------------------;
@@ -355,6 +405,45 @@ endprint:
             pop         es
             popa
             ret
+;----------------------------------------------------------------------------;
+;                         Print AL register routine                          ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+printal:
+            pusha
+            push        es
+            push        ds
+            push        ax
+            
+            call        check_mode
+            cmp         ax, PM_BIT
+            jz          .pm
+            mov         ax, ATIX_SEG
+            mov         ds, ax
+            jmp         .continue
+
+.pm:        mov         ax, code_sel
+            mov         ds, ax
+.continue:
+            pop         ax
+            mov         bx, hex_table
+            mov         dl, al              ; Temporary storage in DL
+            shr         al, 4
+            xlat        
+            mov         ah, al
+            mov         al, dl
+            and         al, 0x0f
+            xlat
+            xchg        al, ah
+            mov         [al_print], ax
+            mov         cx, 2
+            mov         bp, al_print
+            call        print
+
+            pop         ds
+            pop         es
+            popa
+            ret
 
 end_code    equ         $
 
@@ -367,8 +456,22 @@ begin_data:
 
 atixmsg:    db          "ATIX loading..."
 atixmsgln   equ         $-atixmsg
+hex_table:  db          "0123456789ABCDEF"
+al_print    db          "XX"
 haltmsg     db          "ATIX: HALT PROCESSOR."
 haltmsgln   equ         $-haltmsg
+
+msg:
+.code_desc  db          "Code ACC BYTE: "
+.code_descln equ        $ - .code_desc
+.data_desc  db          "Data ACC BYTE: "
+.data_descln equ        $ - .data_desc
+.tss_desc  db          "TSS ACC BYTE: "
+.tss_descln equ        $ - .tss_desc
+.video_desc  db          "Video ACC BYTE: "
+.video_descln equ        $ - .video_desc
+.stack_desc db          "Stack ACC BYTE: "
+.stack_descln equ        $ - .stack_desc
 crsps:      db          0
 
 ;----------------------------------------------------------------------------;
