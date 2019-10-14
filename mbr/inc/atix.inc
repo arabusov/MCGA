@@ -12,6 +12,9 @@
 
     %define ATIX_STACK_OFFSET 0xfffd
 
+    %define ATIX_ABS    ATIX_SEG*0x10+ATIX_OFFSET
+    %define ATIX_STACK_ABS  ATIX_SEG*0x10+ATIX_STACK_OFFSET
+
 ;-----------------------------------------------;
 ;               PROTECTED MODE STUFF            ;
 ;-----------------------------------------------;
@@ -50,11 +53,8 @@
 
     %define TSS_ACC_BYTE PRESENT | ACCESSED
 
-    %define ATIX_CODE_BASE (ATIX_SEG*0x10+ATIX_OFFSET)
-    %define ATIX_STACK_BASE (ATIX_SEG*0x10+ATIX_STACK_OFFSET)
-
-    %define ATIX_STACK_BLO (ATIX_STACK_BASE % 0x10000)
-    %define ATIX_STACK_BHI (ATIX_STACK_BASE / 0x10000)
+    %define ATIX_CODE_BASE  ATIX_SEG*0x10
+    %define ATIX_STACK_BASE ATIX_SEG*0x10
 
     ; Interrupts
     %define IRQ0 0x20

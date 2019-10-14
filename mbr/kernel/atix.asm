@@ -5,8 +5,8 @@ cpu 286
 %include "fat12.inc"
 
 code_size   equ         end_code - start
-stack_size  equ         ATIX_STACK_OFFSET-code_size-data_size-ATIX_OFFSET-tss_size
-
+stack_limit equ         ATIX_STACK_ABS - (ATIX_ABS + code_size + data_size + \
+tss_size)
 section .text
 org ATIX_OFFSET
 ;----------------------------------------------------------------------------;
@@ -107,6 +107,10 @@ check_mode:
 ;---------------------------------------;
 
 debug_gdt:
+            mov         bp, msg.debug_gdt
+            mov         cx, msg.debug_gdtln
+            call        println
+
             mov         bp, msg.code_desc
             mov         cx, msg.code_descln
             call        print
@@ -462,6 +466,8 @@ haltmsg     db          "ATIX: HALT PROCESSOR."
 haltmsgln   equ         $-haltmsg
 
 msg:
+.debug_gdt  db          "Debug GDT:"
+.debug_gdtln    equ     $ - .debug_gdt
 .code_desc  db          "Code ACC BYTE: "
 .code_descln equ        $ - .code_desc
 .data_desc  db          "Data ACC BYTE: "
@@ -482,7 +488,7 @@ crsps:      db          0
 gdt:
             DESCRIPTOR  0, 0, 0
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, code_size, CODE_ACC_BYTE
-.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, stack_size,STACK_ACC_BYTE
+.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, stack_limit,STACK_ACC_BYTE
 .data_desc: DESCRIPTOR  begin_data+ATIX_SEG*0x10, data_size,DATA_ACC_BYTE
 .ktss_desc: DESCRIPTOR  kernel_tss+ATIX_SEG*0x10, kernel_tss_size, TSS_ACC_BYTE
 .video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
