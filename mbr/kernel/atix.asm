@@ -54,7 +54,6 @@ start:
 ;---------------------------------------;
 ;        Initialize segment registers   ;
 ;---------------------------------------;
-
             mov         ax, ATIX_SEG    ; Set all segment registers
             mov         ds, ax
             mov         es, ax
@@ -82,20 +81,40 @@ start:
 ;               Debug GDT               ;
 ;---------------------------------------;
 
-            call        debug_gdt
+realm_ip:   call        debug_gdt
+
+;---------------------------------------;
+;       Debug the real -> protected     ;
+; mode switching.                       ;
+;---------------------------------------;
+
+            mov         ax, 0xb800
+            mov         es, ax
+            mov         word [es:79*2], 0x8252
+
+            lgdt        [gdt_desc]
+            smsw        ax
+            or          ax, PM_BIT
+            lmsw        ax
+            jmp         code_sel:pm_pipeline
+pm_pipeline:
+            mov         ax, video_sel
+            mov         es, ax
+            mov         word [es:79*2+80*2], 0xc050
+            
 
 ;---------------------------------------;
 ;           Halt processor              ;
 ;---------------------------------------;
 
-            mov         bp, haltmsg
-            mov         cx, haltmsgln
-            call        println
+            ;mov         bp, haltmsg
+            ;mov         cx, haltmsgln
+            ;call        println
 
-            sti
+            ;sti
 atix_halt:
             hlt
-            jmp         atix_halt
+            jmp         atix_halt-ATIX_OFFSET
 
 check_mode:
             smsw        ax
@@ -110,6 +129,24 @@ debug_gdt:
             mov         bp, msg.debug_gdt
             mov         cx, msg.debug_gdtln
             call        println
+
+            mov         bp, msg.curr_csip
+            mov         cx, msg.curr_csipln
+            call        print
+            mov         ax, cs
+            mov         al, ah
+            call        printal
+            mov         ax, cs
+            call        printal
+            mov         bp, msg.colon
+            mov         cx, 1
+            call        print
+            mov         ax, realm_ip
+            mov         al, ah
+            call        printal
+            mov         ax, realm_ip
+            call        printal
+            call        newline
 
             mov         bp, msg.code_desc
             mov         cx, msg.code_descln
@@ -449,25 +486,33 @@ printal:
             popa
             ret
 
+printalln:
+            call        printal
+            call        newline
+            ret
+
 end_code    equ         $
 
 ;----------------------------------------------------------------------------;
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
-
+section .data align=16
 begin_data:
 
 atixmsg:    db          "ATIX loading..."
 atixmsgln   equ         $-atixmsg
 hex_table:  db          "0123456789ABCDEF"
 al_print    db          "XX"
-haltmsg     db          "ATIX: HALT PROCESSOR."
+haltmsg:    db          "ATIX: HALT PROCESSOR."
 haltmsgln   equ         $-haltmsg
 
 msg:
 .debug_gdt  db          "Debug GDT:"
 .debug_gdtln    equ     $ - .debug_gdt
+.curr_csip  db          "Real mode CS:IP: "
+.curr_csipln    equ     $ - .curr_csip
+.colon      db          ":"
 .code_desc  db          "Code ACC BYTE: "
 .code_descln equ        $ - .code_desc
 .data_desc  db          "Data ACC BYTE: "
@@ -489,7 +534,7 @@ gdt:
             DESCRIPTOR  0, 0, 0
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, code_size, CODE_ACC_BYTE
 .stack_desc:DESCRIPTOR  ATIX_STACK_BASE, stack_limit,STACK_ACC_BYTE
-.data_desc: DESCRIPTOR  begin_data+ATIX_SEG*0x10, data_size,DATA_ACC_BYTE
+.data_desc: DESCRIPTOR  ATIX_CODE_BASE, code_size+data_size,DATA_ACC_BYTE
 .ktss_desc: DESCRIPTOR  kernel_tss+ATIX_SEG*0x10, kernel_tss_size, TSS_ACC_BYTE
 .video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
 
@@ -497,6 +542,10 @@ code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x04
 data_sel    equ         ((.data_desc -  gdt)/DESC_SIZE)*0x04
 stack_sel   equ         ((.stack_desc -  gdt)/DESC_SIZE)*0x04
 video_sel   equ         ((.video_desc -  gdt)/DESC_SIZE)*0x04
+
+gdt_size    equ         $ - gdt
+gdt_desc:   db          gdt_size
+            dw          gdt
 
 ;----------------------------------------------------------------------------;
 ;                         Interrupt descriptor table                         ;
@@ -529,6 +578,6 @@ kernel_tss_size equ     end_kernel_tss - kernel_tss
 end_tss     equ         $
 tss_size    equ         end_tss - begin_tss
 
-size        equ         $-start
+size        equ         code_size+data_size+tss_size
             times NBYTEPSEC*ATIX_NSEC-size db 0 ;empty sectors of the kernel
 
