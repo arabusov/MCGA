@@ -103,6 +103,7 @@ pm_pipeline:
             mov         word [es:79*2+80*2], 0xc050
             mov         ax, stack_sel
             mov         ss, ax
+            mov         sp, 0
             mov         ax, data_sel
             mov         ds, ax
             mov         ax, video_sel
@@ -624,11 +625,15 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             db          0
             db          DATA_ACC_BYTE
             dw          0
-.code_desc: DESCRIPTOR  ATIX_CODE_BASE, 0xffff, CODE_ACC_BYTE
-.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, useful_size-1, STACK_ACC_BYTE
-.data_desc: DESCRIPTOR  ATIX_CODE_BASE, 0xffff,DATA_ACC_BYTE
-.ktss_desc: DESCRIPTOR  kernel_tss+ATIX_SEG*0x10, kernel_tss_size, TSS_ACC_BYTE
-.video_desc:DESCRIPTOR  0xb8000, 0xffff,DATA_ACC_BYTE
+.code_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size-1), CODE_ACC_BYTE
+.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, (useful_size-1), STACK_ACC_BYTE
+.data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size-1),DATA_ACC_BYTE
+.ktss_desc: dw          kernel_tss_size
+            dw          kernel_tss_base
+            db          0
+            db          TSS_ACC_BYTE
+            dw          0
+.video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
 
 code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x08
 data_sel    equ         .data_desc -  gdt
@@ -652,7 +657,7 @@ data_size   equ         end_data-begin_data
 
 begin_tss   equ         $
 kernel_tss  equ         $
-
+tss:
 .back_link_sel:
             resw        1
 .sp_cpl0:   resw        1
@@ -667,6 +672,7 @@ end_kernel_tss  equ     $
 kernel_tss_size equ     end_kernel_tss - kernel_tss
 end_tss     equ         $
 tss_size    equ         end_tss - begin_tss
+kernel_tss_base equ     tss+ATIX_SEG*0x10
 
 size        equ         code_size+data_size+tss_size
             times NBYTEPSEC*ATIX_NSEC-size db 0 ;empty sectors of the kernel
