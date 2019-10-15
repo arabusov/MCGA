@@ -620,11 +620,6 @@ crsps:      db          0
 gdt:
 .null_desc: DESCRIPTOR  0, 0, 0
 gdt_base    equ         ATIX_SEG*0x10 + gdt
-.gdt_desc:  dw          gdt_size-1
-            dw          gdt_base
-            db          0
-            db          DATA_ACC_BYTE
-            dw          0
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size-1), CODE_ACC_BYTE
 .stack_desc:DESCRIPTOR  ATIX_STACK_BASE, (useful_size-1), STACK_ACC_BYTE
 .data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size-1),DATA_ACC_BYTE
@@ -634,13 +629,18 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             db          TSS_ACC_BYTE
             dw          0
 .video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
+gdt_size    equ         $ - gdt
+.gdt_desc:  dw          gdt_size-1
+            dw          gdt_base                ; Lower 16 bits of base address
+            db          0                       ; Higher 8 bits of the address
+            db          0                       ; Set to 0 for i386
+                                                ; compatibility.
 
 code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x08
 data_sel    equ         .data_desc -  gdt
 stack_sel   equ         .stack_desc -  gdt
 video_sel   equ         .video_desc -  gdt
 
-gdt_size    equ         $ - gdt
 useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
 ;                         Interrupt descriptor table                         ;
