@@ -69,6 +69,16 @@ start:
             mov         bp, atixmsg
             mov         cx, atixmsgln
             call        println
+            mov         cx, 0x300
+            mov         bp, atixmsg
+test_loop: 
+            push        cx
+            mov         cx, 1
+            call        print
+            inc         bp
+            pop         cx
+            loop        test_loop
+            jmp         atix_halt
 
 ;---------------------------------------;
 ;           Set A20 line on             ;

@@ -53,7 +53,7 @@
 
     %define TSS_ACC_BYTE PRESENT | ACCESSED
 
-    ATIX_CODE_BASE  equ (ATIX_SEG*0x10)
+    ATIX_CODE_BASE  equ ATIX_SEG*0x10
     ATIX_STACK_BASE equ ATIX_SEG*0x10
 
     ; Interrupts
