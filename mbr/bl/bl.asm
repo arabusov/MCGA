@@ -37,7 +37,7 @@ get_ip:
         call    printalln
 
         call    find1part 
-        call    printpartinfo
+;        call    printpartinfo
         call    printdiscinfo
         call    loadroot
         call    lsroot
@@ -46,13 +46,9 @@ get_ip:
         mov     cx, 11
         mov     bp, blname
         call    println
-        mov     si, blname
-        call    test_file
         mov     cx, 11
         mov     bp, cfgname
         call    println
-        mov     si, cfgname
-        call    test_file
 
         call    load_cfg
         call    print_cfg
@@ -580,11 +576,6 @@ read_file_loop:
         mov     ax, 0
         jmp     end_read_file
 .continue:
-        push    ax
-        mov     al, ah
-        call    printal
-        pop     ax
-        call    printalln
         cmp     ax, 0x0ff0
         jae     end_read_file
         dec     ax

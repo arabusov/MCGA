@@ -39,6 +39,8 @@ fda360:
 	make build floppy_type=360
 qemu: fda1200
 	qemu-system-i386 -drive format=raw,if=floppy,file=fda1200.img
+debug: fda1200
+	qemu-system-i386 -s -S -drive format=raw,if=floppy,file=fda1200.img
 pcem: fda360
 	pcem --config config/ibmpc_at_cga.cfg
 

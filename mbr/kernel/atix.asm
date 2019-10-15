@@ -74,8 +74,8 @@ start:
 ;           Set A20 line on             ;
 ;---------------------------------------;
 
-            mov         al, 0xdd
-            out         0x64, al
+            ;mov         al, 0xdd
+            ;out         0x64, al
 
 ;---------------------------------------;
 ;               Debug GDT               ;
@@ -92,7 +92,7 @@ realm_ip:   call        debug_gdt
             mov         es, ax
             mov         word [es:79*2], 0x8252
 
-            lgdt        [gdt_desc]
+            lgdt        [gdt.gdt_desc]
             smsw        ax
             or          ax, PM_BIT
             lmsw        ax
@@ -101,17 +101,26 @@ pm_pipeline:
             mov         ax, video_sel
             mov         es, ax
             mov         word [es:79*2+80*2], 0xc050
-            
+            mov         ax, stack_sel
+            mov         ss, ax
+            mov         ax, data_sel
+            mov         ds, ax
+            mov         ax, video_sel
+            mov         es, ax
+
+            mov         bp, msg.pm
+            mov         cx, msg.pmln
+            call        println
 
 ;---------------------------------------;
 ;           Halt processor              ;
 ;---------------------------------------;
 
-            ;mov         bp, haltmsg
-            ;mov         cx, haltmsgln
-            ;call        println
+            mov         bp, haltmsg
+            mov         cx, haltmsgln
+            call        println
 
-            ;sti
+            sti
 atix_halt:
             hlt
             jmp         atix_halt-ATIX_OFFSET
@@ -141,10 +150,18 @@ debug_gdt:
             mov         bp, msg.colon
             mov         cx, 1
             call        print
-            mov         ax, realm_ip
+            mov         ax, pm_pipeline
             mov         al, ah
             call        printal
-            mov         ax, realm_ip
+            mov         ax, pm_pipeline
+            call        printal
+            call        newline
+
+            mov         bp, msg.gdt_desc
+            mov         cx, msg.gdt_descln
+            call        print
+            
+            mov         al, [gdt.gdt_desc+5]
             call        printal
             call        newline
 
@@ -153,6 +170,50 @@ debug_gdt:
             call        print
             
             mov         al, [gdt.code_desc+5]
+            call        printal
+            call        newline
+
+            mov         bp, msg.code_base
+            mov         cx, msg.code_baseln
+            call        print
+            
+            mov         al, [gdt.code_desc+4]
+            call        printal
+            mov         al, [gdt.code_desc+3]
+            call        printal
+            mov         al, [gdt.code_desc+2]
+            call        printal
+            call        newline
+
+            mov         bp, msg.code_desc_pos
+            mov         cx, msg.code_desc_posln
+            call        print
+            
+            mov         ax, (gdt.code_desc - gdt)
+            mov         al, ah
+            call        printal
+            mov         ax, (gdt.code_desc - gdt)
+            call        printal
+            call        newline
+
+            mov         bp, msg.code_sel
+            mov         cx, msg.code_selln
+            call        print
+            
+            mov         ax, code_sel
+            mov         al, ah
+            call        printal
+            mov         ax, code_sel
+            call        printal
+            call        newline
+
+            mov         bp, msg.code_limit
+            mov         cx, msg.code_limitln
+            call        print
+            
+            mov         al, [gdt.code_desc+1]
+            call        printal
+            mov         al, [gdt.code_desc]
             call        printal
             call        newline
 
@@ -187,6 +248,18 @@ debug_gdt:
             mov         al, [gdt.data_desc+5]
             call        printal
             call        newline
+
+            mov         bp, msg.data_sel
+            mov         cx, msg.data_selln
+            call        print
+            
+            mov         ax, data_sel
+            mov         al, ah
+            call        printal
+            mov         ax, data_sel
+            call        printal
+            call        newline
+
             ret
 
 ;----------------------------------------------------------------------------;
@@ -497,7 +570,7 @@ end_code    equ         $
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
-section .data align=16
+;section .data align=16
 begin_data:
 
 atixmsg:    db          "ATIX loading..."
@@ -513,40 +586,57 @@ msg:
 .curr_csip  db          "Real mode CS:IP: "
 .curr_csipln    equ     $ - .curr_csip
 .colon      db          ":"
+.gdt_desc  db          "GDT ACC BYTE: "
+.gdt_descln equ        $ - .gdt_desc
 .code_desc  db          "Code ACC BYTE: "
 .code_descln equ        $ - .code_desc
-.data_desc  db          "Data ACC BYTE: "
+.code_base  db          "Code base: "
+.code_baseln equ        $ - .code_base
+.code_limit  db          "Code limit: "
+.code_limitln equ        $ - .code_limit
+.code_desc_pos  db          "Code desc_pos: "
+.code_desc_posln equ        $ - .code_desc_pos
+.code_sel  db          "Code selector: "
+.code_selln equ        $ - .code_sel
+.data_desc  db          "Code ACC BYTE: "
 .data_descln equ        $ - .data_desc
+.data_sel  db          "Data selector: "
+.data_selln equ        $ - .data_sel
 .tss_desc  db          "TSS ACC BYTE: "
 .tss_descln equ        $ - .tss_desc
 .video_desc  db          "Video ACC BYTE: "
 .video_descln equ        $ - .video_desc
 .stack_desc db          "Stack ACC BYTE: "
 .stack_descln equ        $ - .stack_desc
+.pm         db          "Processor switched to the PROTECTED MODE."
+.pmln       equ         $ - .pm
 crsps:      db          0
 
 ;----------------------------------------------------------------------------;
 ;                         Global descripton table                            ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
-
 gdt:
-            DESCRIPTOR  0, 0, 0
-.code_desc: DESCRIPTOR  ATIX_CODE_BASE, code_size, CODE_ACC_BYTE
-.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, stack_limit,STACK_ACC_BYTE
-.data_desc: DESCRIPTOR  ATIX_CODE_BASE, code_size+data_size,DATA_ACC_BYTE
+.null_desc: DESCRIPTOR  0, 0, 0
+gdt_base    equ         ATIX_SEG*0x10 + gdt
+.gdt_desc:  dw          gdt_size-1
+            dw          gdt_base
+            db          0
+            db          DATA_ACC_BYTE
+            dw          0
+.code_desc: DESCRIPTOR  ATIX_CODE_BASE, 0xffff, CODE_ACC_BYTE
+.stack_desc:DESCRIPTOR  ATIX_STACK_BASE, useful_size-1, STACK_ACC_BYTE
+.data_desc: DESCRIPTOR  ATIX_CODE_BASE, 0xffff,DATA_ACC_BYTE
 .ktss_desc: DESCRIPTOR  kernel_tss+ATIX_SEG*0x10, kernel_tss_size, TSS_ACC_BYTE
-.video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
+.video_desc:DESCRIPTOR  0xb8000, 0xffff,DATA_ACC_BYTE
 
-code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x04
-data_sel    equ         ((.data_desc -  gdt)/DESC_SIZE)*0x04
-stack_sel   equ         ((.stack_desc -  gdt)/DESC_SIZE)*0x04
-video_sel   equ         ((.video_desc -  gdt)/DESC_SIZE)*0x04
+code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x08
+data_sel    equ         .data_desc -  gdt
+stack_sel   equ         .stack_desc -  gdt
+video_sel   equ         .video_desc -  gdt
 
 gdt_size    equ         $ - gdt
-gdt_desc:   db          gdt_size
-            dw          gdt
-
+useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
 ;                         Interrupt descriptor table                         ;
 ;                                                                            ;

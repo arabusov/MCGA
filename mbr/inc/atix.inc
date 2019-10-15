@@ -25,13 +25,13 @@
     ; and the access rights byte
     %macro DESCRIPTOR 3
             dw      %2
-            dw      (%1 % 0x10000)
-            db      (%1 / 0x10000)
+            dw      %1 % 0x10000
+            db      %1 / 0x10000
             db      %3
             dw      0 ; reserved
     %endmacro
 
-    %define DESC_SIZE 2+2+1+1+2
+    DESC_SIZE equ 2+2+1+1+2
 
     %define PRESENT 0x80
     %define SEGMENT_DESCRIPTOR 0x10
@@ -45,16 +45,16 @@
     %define EXPAND_UP_MASK 0xfb
     
     %define CODE_ACC_BYTE PRESENT | SEGMENT_DESCRIPTOR | EXECUTABLE | \
-        CONFORMING | RW_BIT | ACCESSED
+            0      |    0   
     %define DATA_ACC_BYTE PRESENT | SEGMENT_DESCRIPTOR |      0     | \
-            0      | RW_BIT | ACCESSED
+            0      | RW_BIT
     %define STACK_ACC_BYTE PRESENT| SEGMENT_DESCRIPTOR |      0     | \
-       EXPAND_DOWN | RW_BIT | ACCESSED
+       EXPAND_DOWN | RW_BIT 
 
     %define TSS_ACC_BYTE PRESENT | ACCESSED
 
-    %define ATIX_CODE_BASE  ATIX_SEG*0x10
-    %define ATIX_STACK_BASE ATIX_SEG*0x10
+    ATIX_CODE_BASE  equ (ATIX_SEG*0x10)
+    ATIX_STACK_BASE equ ATIX_SEG*0x10
 
     ; Interrupts
     %define IRQ0 0x20
