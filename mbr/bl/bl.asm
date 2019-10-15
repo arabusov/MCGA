@@ -580,10 +580,12 @@ read_file_loop:
         jae     end_read_file
         dec     ax
 %if NSECPCLU > 1
-        mov     cx, NSECPCLU
-        mul     cx
+%rep    NSECPCLU-1
+        shl     ax, 1
+%endrep
 %endif
         add     ax, DATA_AREA
+        call    printalln
         mov     cx, 1
 %rep    NSECPCLU
         call    loadfromdisc
