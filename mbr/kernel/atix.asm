@@ -728,7 +728,7 @@ end_code    equ         $
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
-;section .data align=16
+section .data align=16
 begin_data:
 
 atixmsg:    db          "ATIX loading..."
