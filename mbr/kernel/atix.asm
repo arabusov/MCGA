@@ -93,6 +93,7 @@ realm_ip:   call        debug_gdt
             mov         word [es:79*2], 0x8252
 
             lgdt        [gdt.gdt_desc]
+            lidt        [idt_desc]
             smsw        ax
             or          ax, PM_BIT
             lmsw        ax
@@ -112,6 +113,11 @@ pm_pipeline:
             mov         bp, msg.pm
             mov         cx, msg.pmln
             call        println
+;---------------------------------------;
+;           Test exceptions             ;
+;---------------------------------------;
+            sti
+            ;int         0       ; division by zero exception
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -121,7 +127,6 @@ pm_pipeline:
             mov         cx, haltmsgln
             call        println
 
-            sti
 atix_halt:
             hlt
             jmp         atix_halt-ATIX_OFFSET
@@ -130,6 +135,11 @@ check_mode:
             smsw        ax
             and         ax, PM_BIT
             ret
+
+;----------------------------------------------------------------------------;
+;                            Real mode routines                              ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
 
 ;---------------------------------------;
 ;           Debug GDT routine           ;
@@ -261,7 +271,19 @@ debug_gdt:
             call        printal
             call        newline
 
+            mov         bp, msg.idt_size
+            mov         cx, msg.idt_sizeln
+            call        print
+            mov         ax, idt_size
+            call        printaxln
+
             ret
+
+;----------------------------------------------------------------------------;
+;                               Screen routines                              ;
+; They should be capable for both real and protected modes.                  ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
 
 ;----------------------------------------------------------------------------;
 ;                             Clear screen routine                           ;
@@ -444,7 +466,11 @@ mvcurs:
             ret
 
 
-;newline subroutine
+;----------------------------------------------------------------------------;
+;                             Newline subroutines                            ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
 nl:
             pusha
             push        es
@@ -565,6 +591,83 @@ printalln:
             call        newline
             ret
 
+;----------------------------------------------------------------------------;
+;                      Processor exceptions procedures                       ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+printax:
+            push        dx
+            mov         dl,al
+            mov         al, ah
+            call        printal
+            mov         ax, dx
+            call        printal
+
+            pop         dx
+            ret
+
+printaxln:
+            call        printax
+            call        newline
+            ret
+
+kernel_panic:
+            mov         bp, msg.kernel_panic
+            mov         cx, msg.kernel_panicln
+            call        println
+
+            mov         bp, msg.nexc
+            mov         cx, msg.nexcln
+            call        print
+
+            call        printaxln
+
+            mov         bp, msg.errcode
+            mov         cx, msg.errcodeln
+            call        print
+            mov         bp, sp
+            mov         ax, [ss:bp]
+            call        printaxln
+
+            mov         bp, msg.oldcsip
+            mov         cx, msg.oldcsipln
+            call        print
+            mov         ax, [ss:bp+4]
+            call        printax
+            mov         bp, msg.colon
+            mov         cx, 1
+            call        print
+            mov         ax, [ss:bp+2]
+            call        printaxln
+
+            mov         bp, msg.oldf
+            mov         cx, msg.oldfln
+            call        print
+            mov         ax, [ss:bp+6]
+            call        printaxln
+
+            mov         bp, haltmsg
+            mov         cx, haltmsgln
+
+.halt:      hlt
+            jmp         .halt
+
+;---------------------------------------;
+;   Default exception handler           ;
+;---------------------------------------;
+
+%macro DEFAULT_EXCEPTION 1
+
+exc%1_h:    mov         ax, %1
+            call        kernel_panic
+%endmacro
+
+%assign i 0
+%rep    0x20
+        DEFAULT_EXCEPTION %[i]
+        %assign i i+1
+%endrep
+
 end_code    equ         $
 
 ;----------------------------------------------------------------------------;
@@ -609,8 +712,24 @@ msg:
 .video_descln equ        $ - .video_desc
 .stack_desc db          "Stack ACC BYTE: "
 .stack_descln equ        $ - .stack_desc
+.idt_size       db      "IDT size: "
+.idt_sizeln     equ     $-.idt_size
 .pm         db          "Processor switched to the PROTECTED MODE."
 .pmln       equ         $ - .pm
+
+;-----------------------------------;
+;       Kernel panic messages       ;
+;-----------------------------------;
+.kernel_panic   db      "Kernel PANIC."
+.kernel_panicln equ     $-.kernel_panic
+.nexc           db      "Exception number: "
+.nexcln         equ     $-.nexc
+.errcode        db      "Error code: "
+.errcodeln      equ     $-.errcode
+.oldcsip        db      "CS:IP = "
+.oldcsipln      equ     $-.oldcsip
+.oldf           db      "Flags = "
+.oldfln         equ     $-.oldf
 crsps:      db          0
 
 ;----------------------------------------------------------------------------;
@@ -627,6 +746,11 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             dw          kernel_tss_base
             db          0
             db          TSS_ACC_BYTE
+            dw          0
+.idt_desc:  dw          idt_size
+            dw          idt
+            db          0
+            db          DATA_ACC_BYTE
             dw          0
 .video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
 gdt_size    equ         $ - gdt
@@ -648,9 +772,23 @@ useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
 
 idt:
-            %rep 0x100
-            DESCRIPTOR 0, 0, 0
-            %endrep
+%assign i 0
+%rep 0x20
+idt_%[i]:
+            dw          exc%[i]_h
+            dw          code_sel
+            db          0
+            db          EXC_ACC_BYTE
+            dw          0
+            %assign i i+1
+%endrep
+idt_size    equ         $-idt
+idt_desc:
+            dw          idt_size
+            dw          idt
+            db          0
+            db          0
+
 end_data    equ         $
 
 data_size   equ         end_data-begin_data

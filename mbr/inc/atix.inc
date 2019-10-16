@@ -43,6 +43,8 @@
     %define CONFORMING 0x04
     %define EXPAND_DOWN 0x04
     %define EXPAND_UP_MASK 0xfb
+    %define EXC_GATE 0x7
+    %define INT_GATE 0x6
     
     %define CODE_ACC_BYTE PRESENT | SEGMENT_DESCRIPTOR | EXECUTABLE | \
             0      |    0   
@@ -50,6 +52,9 @@
             0      | RW_BIT
     %define STACK_ACC_BYTE PRESENT| SEGMENT_DESCRIPTOR |      0     | \
        EXPAND_DOWN | RW_BIT 
+
+    %define EXC_ACC_BYTE   PRESENT | EXC_GATE
+    %define INT_ACC_BYTE   PRESENT | INT_GATE
 
     %define TSS_ACC_BYTE PRESENT | ACCESSED
 
