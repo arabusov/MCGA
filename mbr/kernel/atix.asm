@@ -870,9 +870,12 @@ idt_desc:
 end_data    equ         $
 
 data_size   equ         end_data-begin_data
+size        equ         code_size+data_size+tss_size
 
-begin_tss   equ         $
-kernel_tss  equ         $
+            times NBYTEPSEC*ATIX_NSEC-code_size-data_size db 0 ;empty sectors of the kernel
+section .bss align=16
+begin_tss:
+kernel_tss:
 tss:
 .back_link_sel:
             resw        1
@@ -890,6 +893,4 @@ end_tss     equ         $
 tss_size    equ         end_tss - begin_tss
 kernel_tss_base equ     tss+ATIX_SEG*0x10
 
-size        equ         code_size+data_size+tss_size
-            times NBYTEPSEC*ATIX_NSEC-size db 0 ;empty sectors of the kernel
 
