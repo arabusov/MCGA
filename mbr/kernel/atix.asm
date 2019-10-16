@@ -117,7 +117,7 @@ pm_pipeline:
 ;           Test exceptions             ;
 ;---------------------------------------;
             sti
-            int         0       ; division by zero exception
+            int         0x00       ; GP
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -616,6 +616,7 @@ printaxln:
             ret
 
 kernel_panic:
+            call        printaxln
             mov         bp, msg.kernel_panic
             mov         cx, msg.kernel_panicln
             call        println
@@ -625,32 +626,54 @@ kernel_panic:
             call        print
             call        printalln
 
-            ;call        printaxln
+            cmp         al, 0x08
+            je          .errcode
+            cmp         al, 0x0a
+            jb          .no_errcode
+            cmp         al, 0x0d
+            jbe         .errcode
+            cmp         al, 0x20
+            jb          .reserved
+            cmp         al, 0x30
+            jb          .hardware
+            jmp         .other
+.errcode:
+            mov         bp, msg.errcode
+            mov         cx, msg.errcodeln
+            call        print
+            pop         ax
+            call        printaxln
 
-            ;mov         bp, msg.errcode
-            ;mov         cx, msg.errcodeln
-            ;call        print
-            ;mov         bp, sp
-            ;mov         ax, [ss:bp]
-            ;call        printaxln
+.no_errcode:
+            mov         bp, msg.oldcsip
+            mov         cx, msg.oldcsipln
+            call        print
+            mov         bp, sp
+            mov         ax, [ss:bp+2]
+            call        printax
+            mov         bp, msg.colon
+            mov         cx, 1
+            call        print
+            mov         bp, sp
+            mov         ax, [ss:bp]
+            call        printaxln
+            jmp         .halt_msg
+.reserved:
+            mov         bp, msg.res_exc
+            mov         cx, msg.res_excln
+            call        println
+            jmp         .halt_msg
+.hardware:
+            mov         bp, msg.hardware_int
+            mov         cx, msg.hardware_int
+            call        println
+            jmp         .halt_msg
 
-            ;mov         bp, msg.oldcsip
-            ;mov         cx, msg.oldcsipln
-            ;call        print
-            ;mov         ax, [ss:bp+4]
-            ;call        printax
-            ;mov         bp, msg.colon
-            ;mov         cx, 1
-            ;call        print
-            ;mov         ax, [ss:bp+2]
-            ;call        printaxln
+.other:     mov         bp, msg.other_int
+            mov         cx, msg.other_intln
+            call        println
 
-            ;mov         bp, msg.oldf
-            ;mov         cx, msg.oldfln
-            ;call        print
-            ;mov         ax, [ss:bp+6]
-            ;call        printaxln
-
+.halt_msg:
             mov         bp, haltmsg
             mov         cx, haltmsgln
             call        println
@@ -761,6 +784,12 @@ msg:
 .oldcsipln      equ     $-.oldcsip
 .oldf           db      "Flags = "
 .oldfln         equ     $-.oldf
+.res_exc        db      "Reserved exception."
+.res_excln      equ     $-.res_exc
+.hardware_int   db      "Unknown hardware interrupt."
+.hardware_intln equ     $-.hardware_int
+.other_int      db      "Unknown interrupt."
+.other_intln    equ     $-.other_int
 crsps:      db          0
 
 ;----------------------------------------------------------------------------;
