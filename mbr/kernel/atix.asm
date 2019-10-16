@@ -551,9 +551,11 @@ endprint:
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 printal:
-            pusha
-            push        es
             push        ds
+            push        bp
+            push        cx
+            push        dx
+            push        bx
             push        ax
             
             call        check_mode
@@ -563,10 +565,11 @@ printal:
             mov         ds, ax
             jmp         .continue
 
-.pm:        mov         ax, code_sel
+.pm:        mov         ax, data_sel
             mov         ds, ax
 .continue:
             pop         ax
+            push        ax
             mov         bx, hex_table
             mov         dl, al              ; Temporary storage in DL
             shr         al, 4
@@ -581,9 +584,12 @@ printal:
             mov         bp, al_print
             call        print
 
+            pop         ax
+            pop         bx
+            pop         dx
+            pop         cx
+            pop         bp
             pop         ds
-            pop         es
-            popa
             ret
 
 printalln:
@@ -596,14 +602,12 @@ printalln:
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 printax:
-            push        dx
             mov         dl,al
             mov         al, ah
             call        printal
             mov         ax, dx
             call        printal
 
-            pop         dx
             ret
 
 printaxln:
@@ -619,35 +623,37 @@ kernel_panic:
             mov         bp, msg.nexc
             mov         cx, msg.nexcln
             call        print
+            call        printalln
 
-            call        printaxln
+            ;call        printaxln
 
-            mov         bp, msg.errcode
-            mov         cx, msg.errcodeln
-            call        print
-            mov         bp, sp
-            mov         ax, [ss:bp]
-            call        printaxln
+            ;mov         bp, msg.errcode
+            ;mov         cx, msg.errcodeln
+            ;call        print
+            ;mov         bp, sp
+            ;mov         ax, [ss:bp]
+            ;call        printaxln
 
-            mov         bp, msg.oldcsip
-            mov         cx, msg.oldcsipln
-            call        print
-            mov         ax, [ss:bp+4]
-            call        printax
-            mov         bp, msg.colon
-            mov         cx, 1
-            call        print
-            mov         ax, [ss:bp+2]
-            call        printaxln
+            ;mov         bp, msg.oldcsip
+            ;mov         cx, msg.oldcsipln
+            ;call        print
+            ;mov         ax, [ss:bp+4]
+            ;call        printax
+            ;mov         bp, msg.colon
+            ;mov         cx, 1
+            ;call        print
+            ;mov         ax, [ss:bp+2]
+            ;call        printaxln
 
-            mov         bp, msg.oldf
-            mov         cx, msg.oldfln
-            call        print
-            mov         ax, [ss:bp+6]
-            call        printaxln
+            ;mov         bp, msg.oldf
+            ;mov         cx, msg.oldfln
+            ;call        print
+            ;mov         ax, [ss:bp+6]
+            ;call        printaxln
 
             mov         bp, haltmsg
             mov         cx, haltmsgln
+            call        println
 
 .halt:      hlt
             jmp         .halt
@@ -657,7 +663,9 @@ kernel_panic:
 ;---------------------------------------;
 
 %macro DEFAULT_EXCEPTION 1
-exc%1_h:    mov         ax, %1
+exc%1_h:    
+            cli 
+            mov         ax, %1
             call        kernel_panic
 %endmacro
 
@@ -667,8 +675,8 @@ exc%1_h:    mov         ax, %1
 
 %assign i 0
 %rep    0x20
-        DEFAULT_EXCEPTION %[i]
-        %assign i i+1
+            DEFAULT_EXCEPTION %[i]
+            %assign i i+1
 %endrep
 
 ;---------------------------------------;
@@ -676,7 +684,8 @@ exc%1_h:    mov         ax, %1
 ;---------------------------------------;
 
 %macro DEFAULT_INTERRUPT 1
-int%1_h:    mov         ax, %1
+int%1_h:    cli 
+            mov         ax, %1
             call        kernel_panic
 %endmacro
 
@@ -685,9 +694,9 @@ int%1_h:    mov         ax, %1
 ;---------------------------------------;
 
 %assign i 0x20
-%rep    0x10
-        DEFAULT_INTERRUPT %[i]
-        %assign i i+1
+%rep 0x10
+            DEFAULT_INTERRUPT %[i]
+            %assign i i+1
 %endrep
 
 end_code    equ         $
