@@ -117,7 +117,7 @@ pm_pipeline:
 ;           Test exceptions             ;
 ;---------------------------------------;
             sti
-            ;int         0       ; division by zero exception
+            int         0       ; division by zero exception
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -653,18 +653,40 @@ kernel_panic:
             jmp         .halt
 
 ;---------------------------------------;
-;   Default exception handler           ;
+;       Default exception handler       ;
 ;---------------------------------------;
 
 %macro DEFAULT_EXCEPTION 1
-
 exc%1_h:    mov         ax, %1
             call        kernel_panic
 %endmacro
 
+;---------------------------------------;
+;     Processor exception handlers      ;
+;---------------------------------------;
+
 %assign i 0
 %rep    0x20
         DEFAULT_EXCEPTION %[i]
+        %assign i i+1
+%endrep
+
+;---------------------------------------;
+;  Default hardware interrupt handler   ;
+;---------------------------------------;
+
+%macro DEFAULT_INTERRUPT 1
+int%1_h:    mov         ax, %1
+            call        kernel_panic
+%endmacro
+
+;---------------------------------------;
+;   Hardware interrupts handlers        ;
+;---------------------------------------;
+
+%assign i 0x20
+%rep    0x10
+        DEFAULT_INTERRUPT %[i]
         %assign i i+1
 %endrep
 
@@ -772,6 +794,9 @@ useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
 
 idt:
+;-----------------------------------;
+;       Processor exceptions        ;
+;-----------------------------------;
 %assign i 0
 %rep 0x20
 idt_%[i]:
@@ -782,10 +807,25 @@ idt_%[i]:
             dw          0
             %assign i i+1
 %endrep
+;-----------------------------------;
+;        Hardware interrupts        ;
+;-----------------------------------;
+%assign i 0x20
+%rep 0x10
+idt_%[i]:
+            dw          int%[i]_h
+            dw          code_sel
+            db          0
+            db          INT_ACC_BYTE
+            dw          0
+            %assign i i+1
+%endrep
+
+
 idt_size    equ         $-idt
 idt_desc:
-            dw          idt_size
-            dw          idt
+            dw          idt_size-1
+            dw          idt+ATIX_SEG*0x10
             db          0
             db          0
 
