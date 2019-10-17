@@ -109,6 +109,9 @@ pm_pipeline:
             mov         ds, ax
             mov         ax, video_sel
             mov         es, ax
+            mov         word [kernel_tss.ss_cpl0], stack_sel
+            mov         [kernel_tss.sp_cpl0], sp
+
             mov         ax, ktss_sel
             ltr         ax
 
@@ -987,8 +990,8 @@ size        equ         code_size+data_size+tss_size
             times NBYTEPSEC*ATIX_NSEC-code_size-data_size db 0 ;empty sectors of the kernel
 section .bss align=16
 begin_tss:
-kernel_tss:
 tss:
+kernel_tss:
 .back_link_sel:
             resw        1
 .sp_cpl0:   resw        1
