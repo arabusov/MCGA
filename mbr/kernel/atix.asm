@@ -135,6 +135,12 @@ pm_pipeline:
             cld
         rep movsb
             mov         word [tt_tss.ldt_sel], tt_ldt_sel
+            mov         ax, tt_code_sel
+            call        printaxln
+            mov         word [tt_tss+36], tt_code_sel
+            mov         word [tt_tss+14], 0
+            mov         ax, tt_ldt_sel
+            lldt        ax
             call        tt_tss_sel:0
 
 ;---------------------------------------;
@@ -834,8 +840,8 @@ crsps:      db          0
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 gdt:
-.null_desc: DESCRIPTOR  0, 0, 0
 gdt_base    equ         ATIX_SEG*0x10 + gdt
+.null_desc: DESCRIPTOR  0, 0, 0
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size-1), CODE_ACC_BYTE
 .stack_desc:DESCRIPTOR  ATIX_STACK_BASE, (useful_size-1), STACK_ACC_BYTE
 .data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size-1),DATA_ACC_BYTE
@@ -881,8 +887,8 @@ video_sel   equ         .video_desc -  gdt
 ktss_sel    equ         .ktss_desc  -  gdt
 task_sel    equ         .task_desc  -  gdt
 syscall_sel equ         .sysc_desc  -  gdt
-tt_tss_sel  equ         (.tt_tss_desc - gdt) | 0x60
-tt_ldt_sel  equ         (.tt_ldt_desc - gdt) | 0x60
+tt_tss_sel  equ         (.tt_tss_desc - gdt) 
+tt_ldt_sel  equ         (.tt_ldt_desc - gdt) 
 
 useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
@@ -931,9 +937,6 @@ idt_desc:
 ;----------------------------------------------------------------------------;
 
 test_task:
-            mov         ax, tt_stack_sel
-            mov         ss, ax
-            mov         sp, 0
             call        syscall_sel:0
             iret
 task_size equ  $ - test_task
