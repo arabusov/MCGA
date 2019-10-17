@@ -644,6 +644,8 @@ printaxln:
             ret
 
 kernel_panic:
+            mov         bx, data_sel
+            mov         ds, bx
             cmp         al, 0x08
             je          .errcode
             cmp         al, 0x0a
