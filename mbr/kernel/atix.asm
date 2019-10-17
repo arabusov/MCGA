@@ -134,12 +134,16 @@ pm_pipeline:
             mov         di, 0
             cld
         rep movsb
-            mov         word [tt_tss.ldt_sel], tt_ldt_sel
+            mov         ax, tt_ldt_sel
+            call        printaxln
             mov         ax, tt_code_sel
             call        printaxln
+            mov         ax, [gdt.tt_tss_desc]
+            call        printaxln
+            mov         word [tt_tss.ldt_sel], tt_ldt_sel
             mov         word [tt_tss+36], tt_code_sel
             mov         word [tt_tss+14], 0
-            mov         ax, tt_ldt_sel
+            mov         ax, 0 ;tt_ldt_sel
             lldt        ax
             call        tt_tss_sel:0
 
@@ -640,16 +644,6 @@ printaxln:
             ret
 
 kernel_panic:
-            call        printaxln
-            mov         bp, msg.kernel_panic
-            mov         cx, msg.kernel_panicln
-            call        println
-
-            mov         bp, msg.nexc
-            mov         cx, msg.nexcln
-            call        print
-            call        printalln
-
             cmp         al, 0x08
             je          .errcode
             cmp         al, 0x0a
@@ -661,26 +655,13 @@ kernel_panic:
             cmp         al, 0x30
             jb          .hardware
             jmp         .other
+
 .errcode:
-            mov         bp, msg.errcode
-            mov         cx, msg.errcodeln
-            call        print
-            pop         ax
-            call        printaxln
+            pop         word [exc_debug.err]
 
 .no_errcode:
-            mov         bp, msg.oldcsip
-            mov         cx, msg.oldcsipln
-            call        print
-            mov         bp, sp
-            mov         ax, [ss:bp+2]
-            call        printax
-            mov         bp, msg.colon
-            mov         cx, 1
-            call        print
-            mov         bp, sp
-            mov         ax, [ss:bp]
-            call        printaxln
+            pop         word [exc_debug.ip]
+            pop         word [exc_debug.cs]
             jmp         .halt_msg
 .reserved:
             mov         bp, msg.res_exc
@@ -698,6 +679,39 @@ kernel_panic:
             call        println
 
 .halt_msg:
+
+            mov         bp, msg.kernel_panic
+            mov         cx, msg.kernel_panicln
+            call        println
+
+            mov         bp, msg.nexc
+            mov         cx, msg.nexcln
+            call        print
+            call        printalln
+
+            mov         bp, msg.ldtr
+            mov         cx, msg.ldtrln
+            call        print
+            sldt        ax
+            call        printaxln
+
+            mov         bp, msg.errcode
+            mov         cx, msg.errcodeln
+            call        print
+            mov         ax, [exc_debug.err]
+            call        printaxln
+
+            mov         bp, msg.oldcsip
+            mov         cx, msg.oldcsipln
+            call        print
+            mov         ax, [exc_debug.cs]
+            call        printax
+            mov         bp, msg.colon
+            mov         cx, 1
+            call        print
+            mov         ax, [exc_debug.ip]
+            call        printaxln
+
             mov         bp, haltmsg
             mov         cx, haltmsgln
             call        println
@@ -820,6 +834,8 @@ msg:
 .oldcsipln      equ     $-.oldcsip
 .oldf           db      "Flags = "
 .oldfln         equ     $-.oldf
+.ldtr           db      "LDTR: "
+.ldtrln         equ     $-.ldtr
 .res_exc        db      "Reserved exception."
 .res_excln      equ     $-.res_exc
 .hardware_int   db      "Unknown hardware interrupt."
@@ -845,13 +861,13 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size-1), CODE_ACC_BYTE
 .stack_desc:DESCRIPTOR  ATIX_STACK_BASE, (useful_size-1), STACK_ACC_BYTE
 .data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size-1),DATA_ACC_BYTE
-.ktss_desc: dw          kernel_tss_size
-            dw          kernel_tss_base
+.ktss_desc: dw          (kernel_tss_size-1)
+            dw          kernel_tss_base+ATIX_SEG*0x10
             db          0
             db          TSS_ACC_BYTE
             dw          0
-.tt_tss_desc: dw        tt_tss_size
-            dw          tt_tss
+.tt_tss_desc: dw        tt_tss_size-1
+            dw          tt_tss+ATIX_SEG*0x10
             db          0
             db          TSS_ACC_BYTE
             dw          0
@@ -861,7 +877,7 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             db          0
             db          LDT_ACC_BYTE
             dw          0
-.task_desc: DESCRIPTOR  0x10000, task_size-1, DATA_ACC_BYTE
+.task_desc: DESCRIPTOR  0x10800, task_size-1, DATA_ACC_BYTE
 .idt_desc:  dw          idt_size
             dw          idt
             db          0
@@ -931,6 +947,10 @@ idt_desc:
             dw          idt+ATIX_SEG*0x10
             db          0
             db          0
+exc_debug:
+.err:       dw          0
+.ip:        dw          0
+.cs         dw          0
 ;----------------------------------------------------------------------------;
 ;                               Test task                                    ;
 ;                                                                            ;
@@ -944,12 +964,12 @@ task_size equ  $ - test_task
 tt_ldt:
 .null:      dq          0
 .tt_code:   dw          task_size-1
-            dw          0x0000
+            dw          0x0800
             db          0x01
             db          CODE_ACC_BYTE | 0x60
             dw          0
 .tt_stack:  dw          task_size
-            dw          0x0000
+            dw          0x0800
             db          0x01
             db          STACK_ACC_BYTE | 0x60
             dw          0
