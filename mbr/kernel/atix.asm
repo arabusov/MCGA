@@ -109,6 +109,8 @@ pm_pipeline:
             mov         ds, ax
             mov         ax, video_sel
             mov         es, ax
+            mov         ax, ktss_sel
+            ltr         ax
 
             mov         bp, msg.pm
             mov         cx, msg.pmln
@@ -117,7 +119,7 @@ pm_pipeline:
 ;           Test exceptions             ;
 ;---------------------------------------;
             sti
-            int         0x00       ; GP
+;            int         0x00       ; GP
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -725,6 +727,17 @@ int%1_h:    cli
 end_code    equ         $
 
 ;----------------------------------------------------------------------------;
+;                               System calls                                 ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+sys_call:
+            mov         bp, msg.sys_call
+            mov         cx, msg.sys_callln
+            call        println
+            iret
+
+;----------------------------------------------------------------------------;
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
@@ -790,6 +803,13 @@ msg:
 .hardware_intln equ     $-.hardware_int
 .other_int      db      "Unknown interrupt."
 .other_intln    equ     $-.other_int
+
+;--------------------------------------;
+;       Sys calls messages             ;
+;--------------------------------------;
+.sys_call       db      "System call initiated."
+.sys_callln     equ     $-.sys_call
+
 crsps:      db          0
 
 ;----------------------------------------------------------------------------;
@@ -824,6 +844,7 @@ code_sel    equ         ((.code_desc -  gdt)/DESC_SIZE)*0x08
 data_sel    equ         .data_desc -  gdt
 stack_sel   equ         .stack_desc -  gdt
 video_sel   equ         .video_desc -  gdt
+ktss_sel    equ         .ktss_desc  -  gdt
 
 useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
