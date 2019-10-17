@@ -119,7 +119,23 @@ pm_pipeline:
 ;           Test exceptions             ;
 ;---------------------------------------;
             sti
-;            int         0x00       ; GP
+
+;---------------------------------------;
+;           Test task switching         ;
+;---------------------------------------;
+                                        ; First, copy the test task to 
+                                        ; a certain memory location,
+            mov         ax, data_sel    ; described in the gdb.task_desc
+            mov         ds, ax
+            mov         ax, task_sel
+            mov         es, ax
+            mov         cx, task_size
+            mov         si, test_task
+            mov         di, 0
+            cld
+        rep movsb
+            mov         word [tt_tss.ldt_sel], tt_ldt_sel
+            call        tt_tss_sel:0
 
 ;---------------------------------------;
 ;           Halt processor              ;
@@ -737,6 +753,7 @@ sys_call:
             call        println
             iret
 
+
 ;----------------------------------------------------------------------------;
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
@@ -827,12 +844,29 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             db          0
             db          TSS_ACC_BYTE
             dw          0
+.tt_tss_desc: dw        tt_tss_size
+            dw          tt_tss
+            db          0
+            db          TSS_ACC_BYTE
+            dw          0
+.tt_ldt_desc:
+            dw          tt_ldt_size-1
+            dw          (tt_ldt + ATIX_SEG*0x10)
+            db          0
+            db          LDT_ACC_BYTE
+            dw          0
+.task_desc: DESCRIPTOR  0x10000, task_size-1, DATA_ACC_BYTE
 .idt_desc:  dw          idt_size
             dw          idt
             db          0
             db          DATA_ACC_BYTE
             dw          0
-.video_desc:DESCRIPTOR  0xb8000, SCRNRW*SCRNCL*2,DATA_ACC_BYTE
+.video_desc:DESCRIPTOR  0xb8000, (SCRNRW*SCRNCL*2-1),DATA_ACC_BYTE
+.sysc_desc: dw          sys_call
+            dw          code_sel*4
+            db          0
+            dw          SYS_CALL_GATE_ACC_BYTE
+            dw          0
 gdt_size    equ         $ - gdt
 .gdt_desc:  dw          gdt_size-1
             dw          gdt_base                ; Lower 16 bits of base address
@@ -845,6 +879,10 @@ data_sel    equ         .data_desc -  gdt
 stack_sel   equ         .stack_desc -  gdt
 video_sel   equ         .video_desc -  gdt
 ktss_sel    equ         .ktss_desc  -  gdt
+task_sel    equ         .task_desc  -  gdt
+syscall_sel equ         .sysc_desc  -  gdt
+tt_tss_sel  equ         (.tt_tss_desc - gdt) | 0x60
+tt_ldt_sel  equ         (.tt_ldt_desc - gdt) | 0x60
 
 useful_size equ         code_size+data_size+tss_size
 ;----------------------------------------------------------------------------;
@@ -887,6 +925,34 @@ idt_desc:
             dw          idt+ATIX_SEG*0x10
             db          0
             db          0
+;----------------------------------------------------------------------------;
+;                               Test task                                    ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+test_task:
+            mov         ax, tt_stack_sel
+            mov         ss, ax
+            mov         sp, 0
+            call        syscall_sel:0
+            iret
+task_size equ  $ - test_task
+
+tt_ldt:
+.null:      dq          0
+.tt_code:   dw          task_size-1
+            dw          0x0000
+            db          0x01
+            db          CODE_ACC_BYTE | 0x60
+            dw          0
+.tt_stack:  dw          task_size
+            dw          0x0000
+            db          0x01
+            db          STACK_ACC_BYTE | 0x60
+            dw          0
+tt_ldt_size equ         $ - tt_ldt
+tt_code_sel equ         (.tt_code - tt_ldt) | 0x07
+tt_stack_sel equ        (.tt_stack - tt_ldt) | 0x07
 
 end_data    equ         $
 
@@ -909,6 +975,24 @@ tss:
 .registers: resw        14
 .ldt_sel:   resw        1
 end_kernel_tss  equ     $
+kernel_tss_size equ     end_kernel_tss - kernel_tss
+tt_tss:
+.back_link_sel: resw    1
+.sp_cpl0:   resw        1
+.ss_cpl0:   resw        1
+.sp_cpl1:   resw        1
+.ss_cpl1:   resw        1
+.sp_cpl2:   resw        1
+.ss_cpl2:   resw        1
+.registers: resw        14
+.ldt_sel:   resw        1
+end_tt_tss  equ         $
+tt_tss_size equ         $ - tt_tss
+end_tss     equ         $
+tss_size    equ         end_tss - begin_tss
+kernel_tss_base equ     tss+ATIX_SEG*0x10
+
+
 kernel_tss_size equ     end_kernel_tss - kernel_tss
 end_tss     equ         $
 tss_size    equ         end_tss - begin_tss
