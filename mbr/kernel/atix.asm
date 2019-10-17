@@ -111,6 +111,7 @@ pm_pipeline:
             mov         es, ax
             mov         word [kernel_tss.ss_cpl0], stack_sel
             mov         [kernel_tss.sp_cpl0], sp
+;            mov         word [tt_tss+2], sp
 
             mov         ax, ktss_sel
             ltr         ax
@@ -146,6 +147,10 @@ pm_pipeline:
             mov         word [tt_tss.ldt_sel], tt_ldt_sel
             mov         word [tt_tss+36], tt_code_sel
             mov         word [tt_tss+14], 0
+            mov         word [tt_tss+40], tt_data_sel
+            mov         word [tt_tss+34], tt_data_sel
+            mov         word [tt_tss+38], tt_stack_sel
+            mov         word [tt_tss+4], stack_sel
             mov         ax, 0 ;tt_ldt_sel
             lldt        ax
             call        tt_tss_sel:0
@@ -865,7 +870,7 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
 .null_desc: DESCRIPTOR  0, 0, 0
 .code_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size-1), CODE_ACC_BYTE
 .stack_desc:DESCRIPTOR  ATIX_STACK_BASE, (useful_size-1), STACK_ACC_BYTE
-.data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size-1),DATA_ACC_BYTE
+.data_desc: DESCRIPTOR  ATIX_CODE_BASE, (code_size+data_size+tss_size-1),DATA_ACC_BYTE
 .ktss_desc: dw          (kernel_tss_size-1)
             dw          kernel_tss_base+ATIX_SEG*0x10
             db          0
@@ -973,21 +978,28 @@ tt_ldt:
             db          0x01
             db          CODE_ACC_BYTE | 0x60
             dw          0
-.tt_stack:  dw          task_size
+.tt_stack:  dw          task_size+task_data_size-1
             dw          0x0800
+            db          0x01
+            db          STACK_ACC_BYTE | 0x60
+            dw          0
+.tt_data:   dw          task_data_size-1
+            dw          0x0800+task_size
             db          0x01
             db          STACK_ACC_BYTE | 0x60
             dw          0
 tt_ldt_size equ         $ - tt_ldt
 tt_code_sel equ         (.tt_code - tt_ldt) | 0x07
+tt_data_sel equ         (.tt_data - tt_ldt) | 0x07
 tt_stack_sel equ        (.tt_stack - tt_ldt) | 0x07
-
+task_data_size equ      0x100
 end_data    equ         $
-
 data_size   equ         end_data-begin_data
 size        equ         code_size+data_size+tss_size
 
             times NBYTEPSEC*ATIX_NSEC-code_size-data_size db 0 ;empty sectors of the kernel
+
+
 section .bss align=16
 begin_tss:
 tss:
@@ -1020,10 +1032,7 @@ end_tss     equ         $
 tss_size    equ         end_tss - begin_tss
 kernel_tss_base equ     tss+ATIX_SEG*0x10
 
-
 kernel_tss_size equ     end_kernel_tss - kernel_tss
-end_tss     equ         $
-tss_size    equ         end_tss - begin_tss
 kernel_tss_base equ     tss+ATIX_SEG*0x10
 
 
