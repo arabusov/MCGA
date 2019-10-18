@@ -4,9 +4,6 @@ cpu 286
 %include "atix.inc"
 %include "fat12.inc"
 
-code_size   equ         end_code - start
-stack_limit equ         ATIX_STACK_ABS - (ATIX_ABS + code_size + data_size + \
-tss_size)
 section .text
 org ATIX_OFFSET
 ;----------------------------------------------------------------------------;
@@ -109,9 +106,12 @@ pm_pipeline:
             mov         ds, ax
             mov         ax, video_sel
             mov         es, ax
-            mov         word [kernel_tss.ss_cpl0], stack_sel
-            mov         [kernel_tss.sp_cpl0], sp
-;            mov         word [tt_tss+2], sp
+            mov         word [kernel_tss+ss_cpl0], stack_sel
+            mov         word [kernel_tss+38], stack_sel
+            mov         ax, sp
+            mov         word [kernel_tss+sp_cpl0], ax
+            mov         word [tt_tss+2], ax
+            mov         word [kernel_tss+26], ax
 
             mov         ax, ktss_sel
             ltr         ax
@@ -129,8 +129,6 @@ pm_pipeline:
 ;---------------------------------------;
                                         ; First, copy the test task to 
                                         ; a certain memory location,
-            mov         ax, data_sel    ; described in the gdb.task_desc
-            mov         ds, ax
             mov         ax, task_sel
             mov         es, ax
             mov         cx, task_size
@@ -138,13 +136,15 @@ pm_pipeline:
             mov         di, 0
             cld
         rep movsb
-            mov         ax, tt_ldt_sel
-            call        printaxln
-            mov         ax, tt_code_sel
+            mov         ax, [gdt.tt_tss_desc+4]
+            call        printal
+            mov         ax, [gdt.tt_tss_desc+2]
             call        printaxln
             mov         ax, [gdt.tt_tss_desc]
             call        printaxln
-            mov         word [tt_tss.ldt_sel], tt_ldt_sel
+            mov         al,  [gdt.tt_tss_desc+5]
+            call        printalln
+            mov         word [tt_tss+task_ldt_sel], tt_ldt_sel
             mov         word [tt_tss+36], tt_code_sel
             mov         word [tt_tss+14], 0
             mov         word [tt_tss+40], tt_data_sel
@@ -654,6 +654,17 @@ printaxln:
 kernel_panic:
             mov         bx, data_sel
             mov         ds, bx
+            mov         bx, ax
+            mov         bp, sp
+            mov         ax, [bp]
+            call        printaxln
+            mov         ax, [bp+2]
+            call        printaxln
+            mov         ax, [bp+4]
+            call        printaxln
+            mov         ax, [bp+6]
+            call        printaxln
+            mov         ax, bx
             cmp         al, 0x08
             je          .errcode
             cmp         al, 0x0a
@@ -770,8 +781,6 @@ int%1_h:    cli
             %assign i i+1
 %endrep
 
-end_code    equ         $
-
 ;----------------------------------------------------------------------------;
 ;                               System calls                                 ;
 ;                                                                            ;
@@ -783,12 +792,26 @@ sys_call:
             call        println
             iret
 
+;----------------------------------------------------------------------------;
+;                               Test task                                    ;
+;                                                                            ;
+;----------------------------------------------------------------------------;
+
+test_task:
+            call        syscall_sel:0
+            iret
+task_size equ  $ - $$ - test_task
+
+
+code_size   equ         $ - start
+stack_limit equ         ATIX_STACK_ABS - (ATIX_ABS + code_size + data_size + \
+tss_size)
 
 ;----------------------------------------------------------------------------;
 ;                               DATA SEGMENT                                 ;
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
-section .data align=16
+section .data
 begin_data:
 
 atixmsg:    db          "ATIX loading..."
@@ -876,13 +899,13 @@ gdt_base    equ         ATIX_SEG*0x10 + gdt
             db          0
             db          TSS_ACC_BYTE
             dw          0
-.tt_tss_desc: dw        tt_tss_size-1
-            dw          tt_tss+ATIX_SEG*0x10
+.tt_tss_desc: dw        (tt_tss_size-1)
+            dw          (tt_tss+ATIX_SEG*0x10)
             db          0
             db          TSS_ACC_BYTE
             dw          0
 .tt_ldt_desc:
-            dw          tt_ldt_size-1
+            dw          (tt_ldt_size-1)
             dw          (tt_ldt + ATIX_SEG*0x10)
             db          0
             db          LDT_ACC_BYTE
@@ -961,16 +984,6 @@ exc_debug:
 .err:       dw          0
 .ip:        dw          0
 .cs         dw          0
-;----------------------------------------------------------------------------;
-;                               Test task                                    ;
-;                                                                            ;
-;----------------------------------------------------------------------------;
-
-test_task:
-            call        syscall_sel:0
-            iret
-task_size equ  $ - test_task
-
 tt_ldt:
 .null:      dq          0
 .tt_code:   dw          task_size-1
@@ -993,46 +1006,29 @@ tt_code_sel equ         (.tt_code - tt_ldt) | 0x07
 tt_data_sel equ         (.tt_data - tt_ldt) | 0x07
 tt_stack_sel equ        (.tt_stack - tt_ldt) | 0x07
 task_data_size equ      0x100
-end_data    equ         $
+end_data    equ         $-$$
 data_size   equ         end_data-begin_data
 size        equ         code_size+data_size+tss_size
 
-            times NBYTEPSEC*ATIX_NSEC-code_size-data_size db 0 ;empty sectors of the kernel
 
 
-section .bss align=16
-begin_tss:
-tss:
-kernel_tss:
-.back_link_sel:
-            resw        1
-.sp_cpl0:   resw        1
-.ss_cpl0:   resw        1
-.sp_cpl1:   resw        1
-.ss_cpl1:   resw        1
-.sp_cpl2:   resw        1
-.ss_cpl2:   resw        1
-.registers: resw        14
-.ldt_sel:   resw        1
-end_kernel_tss  equ     $
-kernel_tss_size equ     end_kernel_tss - kernel_tss
-tt_tss:
-.back_link_sel: resw    1
-.sp_cpl0:   resw        1
-.ss_cpl0:   resw        1
-.sp_cpl1:   resw        1
-.ss_cpl1:   resw        1
-.sp_cpl2:   resw        1
-.ss_cpl2:   resw        1
-.registers: resw        14
-.ldt_sel:   resw        1
-end_tt_tss  equ         $
-tt_tss_size equ         $ - tt_tss
-end_tss     equ         $
-tss_size    equ         end_tss - begin_tss
-kernel_tss_base equ     tss+ATIX_SEG*0x10
+kernel_tss      equ     code_size + data_size
+kernel_tss_base equ     kernel_tss + ATIX_SEG*0x10
+kernel_tss_size equ     44
+tt_tss          equ     kernel_tss + kernel_tss_size
+tt_tss_base equ     tt_tss + ATIX_SEG*0x10
+tt_tss_size     equ     44
+back_link_sel   equ     0
+sp_cpl0         equ     2
+ss_cpl0         equ     4
+sp_cpl1         equ     6
+ss_cpl1         equ     8
+sp_cpl2         equ     10
+ss_cpl2         equ     12
+task_ldt_sel    equ     42
+tss_size        equ     kernel_tss_size + tt_tss_size
 
-kernel_tss_size equ     end_kernel_tss - kernel_tss
-kernel_tss_base equ     tss+ATIX_SEG*0x10
+section .data
+            times NBYTEPSEC*ATIX_NSEC-code_size-data_size-1 db 0 ;empty sectors of the kernel
 
 
