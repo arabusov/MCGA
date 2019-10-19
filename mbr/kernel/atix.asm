@@ -638,12 +638,13 @@ printalln:
 ;                                                                            ;
 ;----------------------------------------------------------------------------;
 printax:
+	    push	dx
             mov         dl,al
             mov         al, ah
             call        printal
             mov         ax, dx
             call        printal
-
+	    pop		dx
             ret
 
 printaxln:
@@ -800,7 +801,7 @@ sys_call:
 test_task:
             call        syscall_sel:0
             iret
-task_size equ  $ - $$ - test_task
+task_size equ  $  - test_task
 
 
 code_size   equ         $ - start
@@ -1006,7 +1007,7 @@ tt_code_sel equ         (.tt_code - tt_ldt) | 0x07
 tt_data_sel equ         (.tt_data - tt_ldt) | 0x07
 tt_stack_sel equ        (.tt_stack - tt_ldt) | 0x07
 task_data_size equ      0x100
-end_data    equ         $-$$
+end_data    equ         $
 data_size   equ         end_data-begin_data
 size        equ         code_size+data_size+tss_size
 
