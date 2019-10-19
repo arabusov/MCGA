@@ -115,8 +115,8 @@ db 0xff
         FILL_FAT ATIX_1CLU, NATIXCLU/2
         PAIR (ATIX_1CLU+NATIXCLU+1), 0xfff
 %endif
-actual_fat_size equ $ - fat%1
-        times   NBYTEPSEC*FATSIZE-actual_fat_size db 0
+actual_fat_size%1 equ $ - fat%1
+        times   NBYTEPSEC*FATSIZE-actual_fat_size%1 db 0
 %endmacro
 
         MAKE_FAT12 1

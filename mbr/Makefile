@@ -1,6 +1,6 @@
 floppy_type=360
 diskette=fda${floppy_type}.img
-INCLUDE=inc
+INCLUDE=inc/
 AS=nasm
 CAT=cat
 AFLAGS=-f bin -dFLOPPY_TYPE=${floppy_type} -I${INCLUDE}
