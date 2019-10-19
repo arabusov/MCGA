@@ -9,7 +9,7 @@ To test mbr you have to install
 ## Testing MBR program
 ```bash
 cd mbr
-make run
+make qemu
 ```
 
 Enjoy!
