@@ -22,7 +22,6 @@ build: $(OBJ)
 	$(CAT) $(OBJ_DIR)/atix.bin >> ${diskette}
 	$(CAT) $(OBJ_DIR)/floppy.bin >> ${diskette}
 
-
 $(OBJ_DIR)/%.bin : $(KRN_SRC)/%.asm $(OBJ_DIR)
 	${AS} ${AFLAGS} $< -o $@
 
